@@ -7,6 +7,6 @@ authors:
 crystal: 1.1.1
 
 scripts:
-  postinstall: echo $(pwd) && git submodule update --init --recursive && cd secp256k1-zkp && ./autogen.sh && ./configure && make
+  postinstall: git clone https://github.com/syalon/secp256k1-zkp.git && cd secp256k1-zkp && echo $(pwd) && ./autogen.sh && ./configure && make
 
 license: MIT
