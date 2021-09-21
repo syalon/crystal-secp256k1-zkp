@@ -2,8 +2,11 @@ name: crystal-secp256k1-zkp
 version: 0.1.0
 
 authors:
-  - your-name-here <your-email-here>
+  - syalon
 
 crystal: 1.1.1
+
+scripts:
+  postinstall: git submodule update --init --recursive && ./autogen.sh && ./configure && make
 
 license: MIT
