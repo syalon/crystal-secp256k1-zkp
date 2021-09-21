@@ -7,6 +7,6 @@ authors:
 crystal: 1.1.1
 
 scripts:
-  postinstall: git submodule update --init --recursive && ./autogen.sh && ./configure && make
+  postinstall: echo $(pwd) && git submodule update --init --recursive && cd secp256k1-zkp && ./autogen.sh && ./configure && make
 
 license: MIT
