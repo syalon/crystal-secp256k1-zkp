@@ -12,7 +12,9 @@ git clone https://github.com/syalon/secp256k1-zkp.git $SOURCE_CLONE_DIR && cd $S
 
 # 2、编译 / compile
 ./autogen.sh 
-./configure 
+./configure
 make
+sudo make install   #   for dynamic linking
 
-echo "done. target dir: $SOURCE_CLONE_DIR"
+# 3、完成
+echo "compile done. target dir: $SOURCE_CLONE_DIR, lib dir: $SOURCE_CLONE_DIR/.libs"
