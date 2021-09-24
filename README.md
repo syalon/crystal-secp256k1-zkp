@@ -1,6 +1,6 @@
 # crystal-secp256k1-zkp
 
-TODO: Write a description here
+secp256k1-zkp lib for crystal-lang.
 
 ## Installation
 
@@ -36,4 +36,4 @@ TODO: Write development instructions here
 
 ## Contributors
 
-- [your-name-here](https://github.com/syalon) - creator and maintainer
+- [syalon](https://github.com/syalon) - creator and maintainer
