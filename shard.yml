@@ -7,6 +7,6 @@ authors:
 crystal: 1.1.1
 
 scripts:
-  postinstall: git clone https://github.com/syalon/secp256k1-zkp.git && cd secp256k1-zkp && ./autogen.sh && ./configure && make
+  postinstall: chmod a+x build_secp256k1_zkp.sh && ./build_secp256k1_zkp.sh
   
 license: MIT
