@@ -1,6 +1,6 @@
 # crystal-secp256k1-zkp
 
-secp256k1-zkp lib for crystal-lang.
+crystal lang binding for secp256k1-zkp.
 
 ## Installation
 
@@ -19,8 +19,6 @@ secp256k1-zkp lib for crystal-lang.
 ```crystal
 require "crystal-secp256k1-zkp"
 ```
-
-TODO: Write usage instructions here
 
 ## Development
 

@@ -30,4 +30,29 @@ describe Secp256k1Zkp do
   it "rmd160 hex size" do
     rmd160("test", raw = false).size.should eq(40)
   end
+
+  it "string hex_encode" do
+    hex_encode("abcdABCD").should eq("6162636441424344")
+  end
+
+  it "slice hex_encode" do
+    hex_encode(Bytes[12, 192]).should eq("0cc0")
+  end
+
+  it "string hex_decode" do
+    hex_decode("0cc0").should eq(Bytes[12, 192])
+  end
+
+  it "hex_encode && hex_decode" do
+    hex_decode(hex_encode(Bytes[12, 192])).should eq(Bytes[12, 192])
+  end
+
+  it "hex_encode && hex_decode 2" do
+    String.new(hex_decode(hex_encode("abcdABCD"))).should eq("abcdABCD")
+  end
+
+  it "base58" do
+    base58_decode(base58_encode(Bytes[1, 2, 3, 4])).should eq(Bytes[1, 2, 3, 4])
+    base58_decode(base58_encode(Bytes[100, 101])).should eq(Bytes[100, 101])
+  end
 end

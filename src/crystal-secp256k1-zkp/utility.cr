@@ -26,22 +26,23 @@ module Secp256k1Zkp
       end
     end
 
-    # def hex_encode(data)
-    # hexstring
-    #   return data.unpack("H*").first.downcase
-    # end
+    # => Bytes -> hex string
+    # => String -> hex string
+    def hex_encode(data)
+      return data.to_slice.hexstring
+    end
 
-    # def hex_decode(data)
-    #   return [data].pack("H*")
-    # end
+    # => hex string -> Bytes
+    def hex_decode(data)
+      return data.hexbytes
+    end
 
-    # def base58_encode(str, alphabet = :bitcoin)
-    #   Base58.binary_to_base58(str.force_encoding("BINARY"), alphabet)
-    # end
+    def base58_encode(str : Bytes) : String
+      return Base58.bytes_to_base58(str)
+    end
 
-    # def base58_decode(base58_str, alphabet = :bitcoin)
-    #   Base58.base58_to_binary(base58_str, alphabet)
-    # end
-
+    def base58_decode(base58_str : String) : Bytes
+      return Base58.base58_to_bytes(base58_str)
+    end
   end
 end
