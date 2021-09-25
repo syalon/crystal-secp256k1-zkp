@@ -15,6 +15,15 @@ module Secp256k1Zkp
 
     type Secp256k1_context_t_ptr = Void*
 
+    # if (!_g_secp256k1_context_ptr)
+    # {
+    #   _g_secp256k1_context_ptr = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
+    # }
+
+    # $g_secp256k1_context_ptr : Secp256k1_context_t_ptr #
+    # LibSecp256k1.g_secp256k1_context_ptr = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN)
+    # raise "" if $g_secp256k1_context_ptr.nil?
+
     # => LibC::
     # alias Char = UInt8
     # alias UChar = Char
@@ -39,7 +48,7 @@ module Secp256k1Zkp
     #  *  Returns: a newly created context object.
     #  *  In:      flags: which parts of the context to initialize.
     #  */
-    fun secp256k1_context_create(flag : LibC::Int) : Secp256k1_context_t_ptr
+    fun secp256k1_context_create(flag : Int32) : Secp256k1_context_t_ptr
 
     # /** Copies a secp256k1 context object.
     #  *  Returns: a newly created context object.
@@ -67,9 +76,9 @@ module Secp256k1Zkp
     fun secp256k1_ecdsa_verify(ctx : Secp256k1_context_t_ptr,
                                msg : LibC::UChar*,
                                msg : LibC::UChar*,
-                               siglen : LibC::Int,
+                               siglen : Int32,
                                pubkey : LibC::UChar*,
-                               pubkeylen : LibC::Int) : LibC::Int
+                               pubkeylen : Int32) : Int32
 
     # /** A pointer to a function to deterministically generate a nonce.
     #  * Returns: 1 if a nonce was successfully generated. 0 will cause signing to fail.
@@ -83,7 +92,7 @@ module Secp256k1Zkp
     #  * Except for test cases, this function should compute some cryptographic hash of
     #  * the message, the key and the attempt.
     #  */
-    type Secp256k1_nonce_function_t = (LibC::UChar*, LibC::UChar*, LibC::UChar*, LibC::UInt, Void*) -> LibC::Int
+    type Secp256k1_nonce_function_t = (LibC::UChar*, LibC::UChar*, LibC::UChar*, UInt32, Void*) -> Int32
 
     # /** An implementation of RFC6979 (using HMAC-SHA256) as nonce generation function.
     #  * If a data pointer is passed, it is assumed to be a pointer to 32 bytes of
@@ -136,10 +145,10 @@ module Secp256k1Zkp
     fun secp256k1_ecdsa_sign(ctx : Secp256k1_context_t_ptr,
                              msg32 : LibC::UChar*,
                              sig : LibC::UChar*,
-                             siglen : LibC::Int*,
+                             siglen : Int32*,
                              seckey : LibC::UChar*,
                              noncefp : Secp256k1_nonce_function_t,
-                             ndata : Void*) : LibC::Int
+                             ndata : Void*) : Int32
 
     # /** Create a compact ECDSA signature (64 byte + recovery id).
     #  *  Returns: 1: signature created
@@ -159,7 +168,7 @@ module Secp256k1Zkp
                                      seckey : LibC::UChar*,
                                      noncefp : Secp256k1_nonce_function_t,
                                      ndata : Void*,
-                                     recid : LibC::Int*) : LibC::Int
+                                     recid : Int32*) : Int32
 
     # /** Recover an ECDSA public key from a compact signature.
     #  *  Returns: 1: public key successfully recovered (which guarantees a correct signature).
@@ -172,15 +181,13 @@ module Secp256k1Zkp
     #  *  Out:     pubkey:     pointer to a 33 or 65 byte array to put the pubkey (cannot be NULL)
     #  *           pubkeylen:  pointer to an int that will contain the pubkey length (cannot be NULL)
     #  */
-    # SECP256K1_WARN_UNUSED_RESULT int secp256k1_ecdsa_recover_compact(
-    #   const secp256k1_context_t* ctx,
-    #   const unsigned char *msg32,
-    #   const unsigned char *sig64,
-    #   unsigned char *pubkey,
-    #   int *pubkeylen,
-    #   int compressed,
-    #   int recid
-    # ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
+    fun secp256k1_ecdsa_recover_compact(ctx : Secp256k1_context_t_ptr,
+                                        msg32 : LibC::UChar*,
+                                        sig64 : LibC::UChar*,
+                                        pubkey : LibC::UChar*,
+                                        pubkeylen : Int32*,
+                                        compressed : Int32,
+                                        recid : Int32) : Int32
 
     # /** Do an ellitic curve scalar multiplication in constant time.
     #  *  Returns: 1: exponentiation was successful
@@ -193,11 +200,7 @@ module Secp256k1Zkp
     #  *           pointlen: length of the point array, which will be updated by
     #  *                     the multiplication
     #  */
-    # SECP256K1_WARN_UNUSED_RESULT int secp256k1_point_multiply(
-    #   unsigned char *point,
-    #   int *pointlen,
-    #   const unsigned char *scalar
-    # ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
+    fun secp256k1_point_multiply(point : LibC::UChar*, pointlen : Int32*, scalar : LibC::UChar*) : Int32
 
     # /** Verify an ECDSA secret key.
     #  *  Returns: 1: secret key is valid
@@ -205,10 +208,7 @@ module Secp256k1Zkp
     #  *  In:      ctx: pointer to a context object (cannot be NULL)
     #  *           seckey: pointer to a 32-byte secret key (cannot be NULL)
     #  */
-    # SECP256K1_WARN_UNUSED_RESULT int secp256k1_ec_seckey_verify(
-    #   const secp256k1_context_t* ctx,
-    #   const unsigned char *seckey
-    # ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2);
+    fun secp256k1_ec_seckey_verify(ctx : Secp256k1_context_t_ptr, seckey : LibC::UChar*) : Int32
 
     # /** Just validate a public key.
     #  *  Returns: 1: public key is valid
@@ -217,11 +217,7 @@ module Secp256k1Zkp
     #  *           pubkey:    pointer to a 33-byte or 65-byte public key (cannot be NULL).
     #  *           pubkeylen: length of pubkey
     #  */
-    # SECP256K1_WARN_UNUSED_RESULT int secp256k1_ec_pubkey_verify(
-    #   const secp256k1_context_t* ctx,
-    #   const unsigned char *pubkey,
-    #   int pubkeylen
-    # ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2);
+    fun secp256k1_ec_pubkey_verify(ctx : Secp256k1_context_t_ptr, pubkey : LibC::UChar*, pubkeylen : Int32) : Int32
 
     # /** Compute the public key for a secret key.
     #  *  In:     ctx:        pointer to a context object, initialized for signing (cannot be NULL)
@@ -234,13 +230,11 @@ module Secp256k1Zkp
     #  *  Returns: 1: secret was valid, public key stores
     #  *           0: secret was invalid, try again
     #  */
-    # SECP256K1_WARN_UNUSED_RESULT int secp256k1_ec_pubkey_create(
-    #   const secp256k1_context_t* ctx,
-    #   unsigned char *pubkey,
-    #   int *pubkeylen,
-    #   const unsigned char *seckey,
-    #   int compressed
-    # ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
+    fun secp256k1_ec_pubkey_create(ctx : Secp256k1_context_t_ptr,
+                                   pubkey : LibC::UChar*,
+                                   pubkeylen : Int32*,
+                                   seckey : LibC::UChar*,
+                                   compressed : Int32) : Int32
 
     # /** Decompress a public key.
     #  * In:     ctx:       pointer to a context object (cannot be NULL)
@@ -251,64 +245,42 @@ module Secp256k1Zkp
     #  * Returns: 0: pubkey was invalid
     #  *          1: pubkey was valid, and was replaced with its decompressed version
     #  */
-    # SECP256K1_WARN_UNUSED_RESULT int secp256k1_ec_pubkey_decompress(
-    #   const secp256k1_context_t* ctx,
-    #   unsigned char *pubkey,
-    #   int *pubkeylen
-    # ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
+    fun secp256k1_ec_pubkey_decompress(ctx : Secp256k1_context_t_ptr,
+                                       pubkey : LibC::UChar*,
+                                       pubkeylen : Int32*) : Int32
 
     # /** Export a private key in DER format.
     #  * In: ctx: pointer to a context object, initialized for signing (cannot be NULL)
     #  */
-    # SECP256K1_WARN_UNUSED_RESULT int secp256k1_ec_privkey_export(
-    #   const secp256k1_context_t* ctx,
-    #   const unsigned char *seckey,
-    #   unsigned char *privkey,
-    #   int *privkeylen,
-    #   int compressed
-    # ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
+    fun secp256k1_ec_privkey_export(ctx : Secp256k1_context_t_ptr,
+                                    seckey : LibC::UChar*,
+                                    privkey : LibC::UChar*,
+                                    privkeylen : Int32*,
+                                    compressed : Int32) : Int32
 
     # /** Import a private key in DER format. */
-    # SECP256K1_WARN_UNUSED_RESULT int secp256k1_ec_privkey_import(
-    #   const secp256k1_context_t* ctx,
-    #   unsigned char *seckey,
-    #   const unsigned char *privkey,
-    #   int privkeylen
-    # ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
+    fun secp256k1_ec_privkey_import(ctx : Secp256k1_context_t_ptr,
+                                    seckey : LibC::UChar*,
+                                    privkey : LibC::UChar*,
+                                    privkeylen : Int32) : Int32
 
     # /** Tweak a private key by adding tweak to it. */
-    # SECP256K1_WARN_UNUSED_RESULT int secp256k1_ec_privkey_tweak_add(
-    #   const secp256k1_context_t* ctx,
-    #   unsigned char *seckey,
-    #   const unsigned char *tweak
-    # ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
+    fun secp256k1_ec_privkey_tweak_add(ctx : Secp256k1_context_t_ptr,
+                                       seckey : LibC::UChar*,
+                                       tweak : LibC::UChar*) : Int32
 
     # /** Tweak a public key by adding tweak times the generator to it.
     #  * In: ctx: pointer to a context object, initialized for verification (cannot be NULL)
     #  */
-    # SECP256K1_WARN_UNUSED_RESULT int secp256k1_ec_pubkey_tweak_add(
-    #   const secp256k1_context_t* ctx,
-    #   unsigned char *pubkey,
-    #   int pubkeylen,
-    #   const unsigned char *tweak
-    # ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(4);
+    fun secp256k1_ec_pubkey_tweak_add(ctx : Secp256k1_context_t_ptr, pubkey : LibC::UChar*, pubkeylen : Int32, tweak : LibC::UChar*) : Int32
 
     # /** Tweak a private key by multiplying it with tweak. */
-    # SECP256K1_WARN_UNUSED_RESULT int secp256k1_ec_privkey_tweak_mul(
-    #   const secp256k1_context_t* ctx,
-    #   unsigned char *seckey,
-    #   const unsigned char *tweak
-    # ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
+    fun secp256k1_ec_privkey_tweak_mul(ctx : Secp256k1_context_t_ptr, seckey : LibC::UChar*, tweak : LibC::UChar*) : Int32
 
     # /** Tweak a public key by multiplying it with tweak.
     #  * In: ctx: pointer to a context object, initialized for verification (cannot be NULL)
     #  */
-    # SECP256K1_WARN_UNUSED_RESULT int secp256k1_ec_pubkey_tweak_mul(
-    #   const secp256k1_context_t* ctx,
-    #   unsigned char *pubkey,
-    #   int pubkeylen,
-    #   const unsigned char *tweak
-    # ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(4);
+    fun secp256k1_ec_pubkey_tweak_mul(ctx : Secp256k1_context_t_ptr, pubkey : LibC::UChar*, pubkeylen : Int32, tweak : LibC::UChar*) : Int32
 
     # /** Updates the context randomization.
     #  *  Returns: 1: randomization successfully updated
@@ -316,10 +288,7 @@ module Secp256k1Zkp
     #  *  In:      ctx:       pointer to a context object (cannot be NULL)
     #  *           seed32:    pointer to a 32-byte random seed (NULL resets to initial state)
     #  */
-    # SECP256K1_WARN_UNUSED_RESULT int secp256k1_context_randomize(
-    #   secp256k1_context_t* ctx,
-    #   const unsigned char *seed32
-    # ) SECP256K1_ARG_NONNULL(1);
+    fun secp256k1_context_randomize(ctx : Secp256k1_context_t_ptr, seed32 : LibC::UChar*) : Int32
 
     # /** Generate a pedersen commitment.
     #  *  Returns 1: commitment successfully created.
@@ -331,12 +300,7 @@ module Secp256k1Zkp
     #  *
     #  *  Blinding factors can be generated and verified in the same way as secp256k1 private keys for ECDSA.
     #  */
-    # SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_commit(
-    #   const secp256k1_context_t* ctx,
-    #   unsigned char *commit,
-    #   unsigned char *blind,
-    #   uint64_t value
-    # ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
+    fun secp256k1_pedersen_commit(ctx : Secp256k1_context_t_ptr, commit : LibC::UChar*, blind : LibC::UChar*, value : UInt64) : Int32
 
     # /** Computes the sum of multiple positive and negative blinding factors.
     #  *  Returns 1: sum successfully computed.
@@ -391,14 +355,7 @@ module Secp256k1Zkp
     #  * Out:  min_value: pointer to a unsigned int64 which will be updated with the minimum value that commit could have. (cannot be NULL)
     #  *       max_value: pointer to a unsigned int64 which will be updated with the maximum value that commit could have. (cannot be NULL)
     #  */
-    # SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_verify(
-    #  const secp256k1_context_t* ctx,
-    #  uint64_t *min_value,
-    #  uint64_t *max_value,
-    #  const unsigned char *commit,
-    #  const unsigned char *proof,
-    #  int plen
-    # )SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
+    fun secp256k1_rangeproof_verify(ctx : Secp256k1_context_t_ptr, min_value : UInt64*, max_value : UInt64*, commit : LibC::UChar*, proof : LibC::UChar*, plen : Int32) : Int32
 
     # /** Verify a range proof proof and rewind the proof to recover information sent by its author.
     #  *  Returns 1: Value is within the range [0..2^64), the specifically proven range is in the min/max value outputs, and the value and blinding were recovered.
@@ -415,19 +372,17 @@ module Secp256k1Zkp
     #  *        min_value: pointer to an unsigned int64 which will be updated with the minimum value that commit could have. (cannot be NULL)
     #  *        max_value: pointer to an unsigned int64 which will be updated with the maximum value that commit could have. (cannot be NULL)
     #  */
-    # SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_rewind(
-    #  const secp256k1_context_t* ctx,
-    #  unsigned char *blind_out,
-    #  uint64_t *value_out,
-    #  unsigned char *message_out,
-    #  int *outlen,
-    #  const unsigned char *nonce,
-    #  uint64_t *min_value,
-    #  uint64_t *max_value,
-    #  const unsigned char *commit,
-    #  const unsigned char *proof,
-    #  int plen
-    # )SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(6) SECP256K1_ARG_NONNULL(7) SECP256K1_ARG_NONNULL(8) SECP256K1_ARG_NONNULL(9) SECP256K1_ARG_NONNULL(10);
+    fun secp256k1_rangeproof_rewind(ctx : Secp256k1_context_t_ptr,
+                                    blind_out : LibC::UChar*,
+                                    value_out : UInt64*,
+                                    message_out : LibC::UChar*,
+                                    outlen : Int32*,
+                                    nonce : LibC::UChar*,
+                                    min_value : UInt64*,
+                                    max_value : UInt64*,
+                                    commit : LibC::UChar*,
+                                    proof : LibC::UChar*,
+                                    plen : Int32) : Int32
 
     # /** Author a proof that a committed value is within a range.
     #  *  Returns 1: Proof successfully created.
@@ -451,18 +406,16 @@ module Secp256k1Zkp
     #  *  This can randomly fail with probability around one in 2^100. If this happens, buy a lottery ticket and retry with a different nonce or blinding.
     #  *
     #  */
-    # SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_sign(
-    #  const secp256k1_context_t* ctx,
-    #  unsigned char *proof,
-    #  int *plen,
-    #  uint64_t min_value,
-    #  const unsigned char *commit,
-    #  const unsigned char *blind,
-    #  const unsigned char *nonce,
-    #  int exp,
-    #  int min_bits,
-    #  uint64_t value
-    # )SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6) SECP256K1_ARG_NONNULL(7);
+    fun secp256k1_rangeproof_sign(ctx : Secp256k1_context_t_ptr,
+                                  proof : LibC::UChar*,
+                                  plen : Int32*,
+                                  min_value : UInt64,
+                                  commit : LibC::UChar*,
+                                  blind : LibC::UChar*,
+                                  nonce : LibC::UChar*,
+                                  exp : Int32,
+                                  min_bits : Int32,
+                                  value : UInt64) : Int32
 
     # /** Extract some basic information from a range-proof.
     #  *  Returns 1: Information successfully extracted.
@@ -475,21 +428,110 @@ module Secp256k1Zkp
     #  *        min_value: pointer to an unsigned int64 which will be updated with the minimum value that commit could have. (cannot be NULL)
     #  *        max_value: pointer to an unsigned int64 which will be updated with the maximum value that commit could have. (cannot be NULL)
     #  */
-    # SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_info(
-    #  const secp256k1_context_t* ctx,
-    #  int *exp,
-    #  int *mantissa,
-    #  uint64_t *min_value,
-    #  uint64_t *max_value,
-    #  const unsigned char *proof,
-    #  int plen
-    # )SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
+    fun secp256k1_rangeproof_info(ctx : Secp256k1_context_t_ptr,
+                                  exp : Int32*,
+                                  mantissa : Int32*,
+                                  min_value : UInt64*,
+                                  max_value : UInt64*,
+                                  proof : LibC::UChar*,
+                                  plen : Int32) : Int32
+  end
 
+  # //  Secp256k1Zkp::Context
+  # rb_cSecp256k1Context = rb_define_class_under(rb_mSecp256k1, "Context", rb_cObject);
+
+  # rb_undef_alloc_func(rb_cSecp256k1Context);
+  # rb_define_alloc_func(rb_cSecp256k1Context, dm_context_alloc);
+  # rb_define_method(rb_cSecp256k1Context, "initialize", dm_context_initialize, 1);
+  # rb_define_method(rb_cSecp256k1Context, "is_valid_public_keydata?", dm_context_verify_public_keydata, 1);
+  # rb_define_method(rb_cSecp256k1Context, "is_valid_private_keydata?", dm_context_verify_private_keydata, 1);
+  # rb_define_method(rb_cSecp256k1Context, "clone", dm_context_clone, 0);
+  # rb_define_method(rb_cSecp256k1Context, "dup", dm_context_clone, 0);
+  # rb_define_method(rb_cSecp256k1Context, "sign_compact", dm_context_sign_compact, -1);
+  # rb_define_method(rb_cSecp256k1Context, "pedersen_commit", dm_context_pedersen_commit, 2);
+  # rb_define_method(rb_cSecp256k1Context, "pedersen_blind_sum", dm_context_pedersen_blind_sum, 2);
+  # rb_define_method(rb_cSecp256k1Context, "range_proof_sign", dm_context_range_proof_sign, 7);
+
+  # //  Secp256k1Zkp::PublicKey
+  # rb_cSecp256k1PublicKey = rb_define_class_under(rb_mSecp256k1, "PublicKey", rb_cObject);
+
+  # rb_undef_alloc_func(rb_cSecp256k1PublicKey);
+  # rb_define_alloc_func(rb_cSecp256k1PublicKey, dm_public_key_alloc);
+  # rb_define_method(rb_cSecp256k1PublicKey, "initialize", dm_public_key_initialize, 1);
+  # rb_define_method(rb_cSecp256k1PublicKey, "bytes", dm_public_key_bytes, 0);
+  # rb_define_method(rb_cSecp256k1PublicKey, "tweak_add", dm_public_key_tweak_add, 1);
+  # rb_define_method(rb_cSecp256k1PublicKey, "tweak_mul", dm_public_key_tweak_mul, 1);
+  # rb_define_alias(rb_cSecp256k1PublicKey, "+", "tweak_add");
+  # rb_define_alias(rb_cSecp256k1PublicKey, "*", "tweak_mul");
+
+  # //  Secp256k1Zkp::PrivateKey
+  # rb_cSecp256k1PrivateKey = rb_define_class_under(rb_mSecp256k1, "PrivateKey", rb_cObject);
+
+  # rb_undef_alloc_func(rb_cSecp256k1PrivateKey);
+  # rb_define_alloc_func(rb_cSecp256k1PrivateKey, dm_private_key_alloc);
+  # rb_define_method(rb_cSecp256k1PrivateKey, "initialize", dm_private_key_initialize, 1);
+  # rb_define_method(rb_cSecp256k1PrivateKey, "bytes", dm_private_key_bytes, 0);
+  # rb_define_method(rb_cSecp256k1PrivateKey, "tweak_add", dm_private_key_tweak_add, 1);
+  # rb_define_method(rb_cSecp256k1PrivateKey, "tweak_mul", dm_private_key_tweak_mul, 1);
+  # rb_define_alias(rb_cSecp256k1PrivateKey, "+", "tweak_add");
+  # rb_define_alias(rb_cSecp256k1PrivateKey, "*", "tweak_mul");
+  # rb_define_method(rb_cSecp256k1PrivateKey, "to_public_key", dm_private_key_to_public_key, 0);
+
+  # /**
+  #  *  各种数据结构字节数定义
+  #  */
+  # #define kByteSizePrivateKeyData 32
+  # #define kByteSizePublicKeyPoint 65
+  # #define kByteSizeCompressedPublicKeyData 33
+  # #define kByteSizeCompactSignature 65
+  # #define kByteSizeBlindFactor 32
+  # #define kByteSizeCommitment 33
+  # #define kByteSizeSha256 32
+
+  # typedef struct
+  # {
+  #   unsigned char data[kByteSizePrivateKeyData];
+  # } rb_struct_private_key;
+
+  # //  the full non-compressed version of the ECC point
+  # typedef struct
+  # {
+  #   unsigned char data[kByteSizePublicKeyPoint];
+  # } rb_struct_pubkey_point;
+
+  # typedef struct
+  # {
+  #   unsigned char data[kByteSizeCompressedPublicKeyData];
+  # } rb_struct_pubkey_compressed;
+
+  # typedef struct
+  # {
+  #   unsigned char data[kByteSizeCompactSignature];
+  # } rb_struct_compact_signature;
+
+  # typedef struct
+  # {
+  #   unsigned char data[kByteSizeBlindFactor];
+  # } rb_struct_blind_factor_type;
+
+  # typedef struct
+  # {
+  #   unsigned char data[kByteSizeCommitment];
+  # } rb_struct_commitment_type;
+
+  @@g_secp256k1_context_ptr : LibSecp256k1::Secp256k1_context_t_ptr? = nil
+
+  def self.g_secp256k1_context_ptr : LibSecp256k1::Secp256k1_context_t_ptr
+    if @@g_secp256k1_context_ptr.nil?
+      @@g_secp256k1_context_ptr = LibSecp256k1.secp256k1_context_create(LibSecp256k1::SECP256K1_CONTEXT_VERIFY | LibSecp256k1::SECP256K1_CONTEXT_SIGN)
+    end
+    raise "secp256k1_context_create failed." if @@g_secp256k1_context_ptr.nil?
+    return @@g_secp256k1_context_ptr.not_nil!
   end
 
   class Context
     def self.default
-      new
+      return new(LibSecp256k1::SECP256K1_CONTEXT_ALL)
     end
 
     def initialize(flag = LibSecp256k1::SECP256K1_CONTEXT_ALL)
@@ -497,7 +539,18 @@ module Secp256k1Zkp
       raise "secp256k1_context_create failed." if @ctx.nil?
     end
 
-    def sign_compact
+    def is_valid_public_keydata?(public_keydata : String) : Bool
+      bytes = public_keydata.to_slice
+      return nif 0 != secp256k1_ec_pubkey_verify(@ctx, bytes.to_unsafe, bytes.size)
+    end
+
+    def is_valid_private_keydata?(private_keydata : String) : Bool
+      # => TODO:
+      # secp256k1_ec_seckey_verify
+    end
+
+    def sign_compact(message_digest, private_key, require_canonical = true)
+      # => TODO:
       secp256k1_ecdsa_sign_compact(@ctx, nil, nil, nil, nil, nil, nil)
       # secp256k1_ecdsa_sign_compact
       # fun secp256k1_ecdsa_sign_compact(ctx : Secp256k1_context_t_ptr,
@@ -506,7 +559,61 @@ module Secp256k1Zkp
       #                                seckey : LibC::UChar*,
       #                                noncefp : Secp256k1_nonce_function_t,
       #                                ndata : Void*,
-      #                                recid : LibC::Int*) : LibC::Int
+      #                                recid : Int32*) : Int32
+    end
+  end
+
+  class PublicKey
+    # include Secp256k1Zkp::Utility
+
+    def self.from_wif(wif_public_key : String, public_key_prefix = "BTS")
+      prefix_size = public_key_prefix.bytesize
+      prefix = wif_public_key[0, prefix_size]
+      raise "invalid public key prefix." if prefix != public_key_prefix
+
+      raw = base58_decode(wif_public_key[prefix_size..-1])
+      checksum_size = 4
+      compression_public_key = raw[0, raw.bytesize - checksum_size]
+      checksum4 = raw[-checksum_size..-1]
+      raise "invalid public key." if checksum4 != rmd160(compression_public_key)[0, checksum_size]
+
+      return new(compression_public_key)
+    end
+
+    def initialize(public_keydata : Bytes)
+      raise "invalid public key data." if 0 == LibSecp256k1.secp256k1_ec_pubkey_verify(Secp256k1Zkp.g_secp256k1_context_ptr, public_keydata, public_keydata.size)
+      @public_keydata = public_keydata
+    end
+
+    private def bytes
+      @public_keydata
+    end
+
+    def to_wif(public_key_prefix = "BTS")
+      checksum = rmd160(self.bytes)
+
+      # => addr = self.bytes + checksum[0, 4]
+      io = IO::Memory.new
+      io.write(self.bytes)
+      io.write(checksum[0, 4])
+      addr = io.to_slice
+
+      return public_key_prefix + base58_encode(addr)
+    end
+
+    # # => (public) 生成bts地址（序列化时公钥排序会用到。）
+    # def to_blockchain_address
+    #   return rmd160(sha512(self.bytes))
+    # end
+
+    # def shared_secret(private_key)
+    #   share_public_key = self * private_key.bytes
+    #   return sha512(share_public_key.bytes[1..-1])
+    # end
+  end
+
+  class PrivateKey
+    def initialize(private_keydata)
     end
   end
 end

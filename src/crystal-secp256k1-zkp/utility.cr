@@ -2,28 +2,28 @@ require "digest"
 
 module Secp256k1Zkp
   module Utility
-    def sha256(data, raw = true)
-      if raw
-        return Digest::SHA256.digest(data)
-      else
-        return Digest::SHA256.hexdigest(data)
-      end
+    def sha256(data)
+      return Digest::SHA256.digest(data)
     end
 
-    def sha512(data, raw = true)
-      if raw
-        return Digest::SHA512.digest(data)
-      else
-        return Digest::SHA512.hexdigest(data)
-      end
+    def sha256_hex(data)
+      return Digest::SHA256.hexdigest(data)
     end
 
-    def rmd160(data, raw = true)
-      if raw
-        return Digest::RMD160.digest(data)
-      else
-        return Digest::RMD160.hexdigest(data)
-      end
+    def sha512(data)
+      return Digest::SHA512.digest(data)
+    end
+
+    def sha512_hex(data)
+      return Digest::SHA512.hexdigest(data)
+    end
+
+    def rmd160(data)
+      return Digest::RMD160.digest(data)
+    end
+
+    def rmd160_hex(data)
+      return Digest::RMD160.hexdigest(data)
     end
 
     # => Bytes -> hex string

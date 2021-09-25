@@ -36,7 +36,7 @@ module Base58
       prefix = ""
     end
 
-    prefix + int_to_base58(binary_val.hexstring.to_i(16))
+    prefix + int_to_base58(binary_val.hexstring.to_big_i(16))
   end
 
   def base58_to_bytes(base58_val : String) : Bytes

@@ -12,7 +12,7 @@ describe Secp256k1Zkp do
   end
 
   it "sha256 hex size" do
-    sha256("test", raw = false).size.should eq(64)
+    sha256_hex("test").size.should eq(64)
   end
 
   it "sha512 size" do
@@ -20,7 +20,7 @@ describe Secp256k1Zkp do
   end
 
   it "sha512 hex size" do
-    sha512("test", raw = false).size.should eq(128)
+    sha512_hex("test").size.should eq(128)
   end
 
   it "rmd160 size" do
@@ -28,7 +28,7 @@ describe Secp256k1Zkp do
   end
 
   it "rmd160 hex size" do
-    rmd160("test", raw = false).size.should eq(40)
+    rmd160_hex("test").size.should eq(40)
   end
 
   it "string hex_encode" do
@@ -54,5 +54,11 @@ describe Secp256k1Zkp do
   it "base58" do
     base58_decode(base58_encode(Bytes[1, 2, 3, 4])).should eq(Bytes[1, 2, 3, 4])
     base58_decode(base58_encode(Bytes[100, 101])).should eq(Bytes[100, 101])
+  end
+
+  it "publick key" do
+    pubkey = Secp256k1Zkp::PublicKey.from_wif("BTS6ictwisU3gYaq27t3Em1TZDbzfaJeNf2SAXq9S77KgQHhxaj7C")
+    p! pubkey.to_blockchain_address
+    pubkey.to_wif.should eq("BTS6ictwisU3gYaq27t3Em1TZDbzfaJeNf2SAXq9S77KgQHhxaj7C")
   end
 end
