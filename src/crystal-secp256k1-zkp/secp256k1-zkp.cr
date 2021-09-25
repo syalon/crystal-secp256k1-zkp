@@ -83,16 +83,17 @@ module Secp256k1Zkp
     #  * Except for test cases, this function should compute some cryptographic hash of
     #  * the message, the key and the attempt.
     #  */
-    type Secp256k1_nonce_function_t = (LibC::UChar*, LibC::UChar*, LibC::UChar*, UInt32, Void*) -> Int32
+    alias Secp256k1_nonce_function_t = (LibC::UChar*, LibC::UChar*, LibC::UChar*, UInt32, Void*) -> Int32
 
     # /** An implementation of RFC6979 (using HMAC-SHA256) as nonce generation function.
     #  * If a data pointer is passed, it is assumed to be a pointer to 32 bytes of
     #  * extra entropy.
     #  */
-    # extern const secp256k1_nonce_function_t secp256k1_nonce_function_rfc6979;
+    $secp256k1_nonce_function_rfc6979 : Secp256k1_nonce_function_t
 
     # /** A default safe nonce generation function (currently equal to secp256k1_nonce_function_rfc6979). */
-    # extern const secp256k1_nonce_function_t secp256k1_nonce_function_default;
+    # $secp256k1_nonce_function_default : Secp256k1_nonce_function_t
+    $secp256k1_nonce_function_default : (LibC::UChar*, LibC::UChar*, LibC::UChar*, UInt32, Void*) -> Int32
 
     # /** Create an ECDSA signature.
     #  *  Returns: 1: signature created
@@ -138,7 +139,7 @@ module Secp256k1Zkp
                              sig : LibC::UChar*,
                              siglen : Int32*,
                              seckey : LibC::UChar*,
-                             noncefp : Secp256k1_nonce_function_t*,
+                             noncefp : Secp256k1_nonce_function_t,
                              ndata : Void*) : Int32
 
     # /** Create a compact ECDSA signature (64 byte + recovery id).
@@ -157,7 +158,7 @@ module Secp256k1Zkp
                                      msg32 : LibC::UChar*,
                                      sig64 : LibC::UChar*,
                                      seckey : LibC::UChar*,
-                                     noncefp : Secp256k1_nonce_function_t*,
+                                     noncefp : Secp256k1_nonce_function_t,
                                      ndata : Void*,
                                      recid : Int32*) : Int32
 
@@ -523,9 +524,14 @@ module Secp256k1Zkp
     end
 
     @flag : Int32
+    @ctx : LibSecp256k1::Secp256k1_context_t_ptr
 
-    def initialize(flag = LibSecp256k1::SECP256K1_CONTEXT_ALL)
-      @ctx = LibSecp256k1.secp256k1_context_create(flag)
+    def ptr
+      @ctx
+    end
+
+    def initialize(flag = LibSecp256k1::SECP256K1_CONTEXT_ALL, ctx : LibSecp256k1::Secp256k1_context_t_ptr? = nil)
+      @ctx = ctx || LibSecp256k1.secp256k1_context_create(flag)
       raise "secp256k1_context_create failed." if @ctx.nil?
       @flag = flag
     end
@@ -538,63 +544,63 @@ module Secp256k1Zkp
       return private_keydata.size == BYTESIZE_PRIVATE_KEY_DATA && 0 != LibSecp256k1.secp256k1_ec_seckey_verify(@ctx, public_keydata)
     end
 
-    # static int extended_nonce_function(unsigned char *nonce32, const unsigned char *msg32,
-    #                                    const unsigned char *key32, unsigned int attempt,
-    #                                    const void *data)
-    # {
-    #   unsigned int *extra = (unsigned int *)data;
-    #   (*extra)++;
-    #   return secp256k1_nonce_function_default(nonce32, msg32, key32, *extra, 0);
-    # };
+    def clone
+      self.class.new(@flag, LibSecp256k1.secp256k1_context_clone(@ctx))
+    end
 
-    private def is_canonical?(sign : Bytes) : Bool
-      #   const unsigned char *c = sign->data;
+    def dup
+      clone
+    end
 
-      # => TODO:
-      # if (!(c[1] & 0x80) && !(c[1] == 0 && !(c[2] & 0x80)) && !(c[33] & 0x80) && !(c[33] == 0 && !(c[34] & 0x80)))
-      # {
-      #   return 1;
-      # }
-
-      return false
+    private def is_canonical?(c : Bytes) : Bool
+      return !((c[1] & 0x80) != 0) &&
+        !(c[1] == 0 && !((c[2] & 0x80) != 0)) &&
+        !((c[33] & 0x80) != 0) &&
+        !(c[33] == 0 && !((c[34] & 0x80) != 0))
     end
 
     def sign_compact(message_digest : Bytes, private_key : PrivateKey, require_canonical = true) : Bytes
       raise "invalid message digest32." if message_digest.size != BYTESIZE_SHA256
       raise "invalid secp256k1 context, missing `SECP256K1_CONTEXT_SIGN` flag." if 0 == (@flag & LibSecp256k1::SECP256K1_CONTEXT_SIGN)
 
-      #  //  初始化部分参数
-      #  digest32 = (const unsigned char *)RSTRING_PTR(message_digest);
-      #  require_canonical = RTEST(v_require_canonical) ? 1 : 0;
-
       signature = Bytes.new(BYTESIZE_COMPACT_SIGNATURE)
 
-      # fun secp256k1_ecdsa_sign_compact(ctx : Secp256k1_context_t_ptr,
-      #                                  msg32 : LibC::UChar*,
-      #                                  sig64 : LibC::UChar*,
-      #                                  seckey : LibC::UChar*,
-      #                                  noncefp : Secp256k1_nonce_function_t,
-      #                                  ndata : Void*,
-      #                                  recid : Int32*) : Int32
+      extended_nonce_function = ->(nonce32 : LibC::UChar*, msg32 : LibC::UChar*, key32 : LibC::UChar*, attempt : UInt32, data : Void*) {
+        extra = data.as(UInt32*)
+        extra.value += 1
+        return LibSecp256k1.secp256k1_nonce_function_default.call(nonce32, msg32, key32, extra.value, Pointer(Void).new(0))
+      }
 
       # => 循环计算签名，直到找到合适的 canonical 签名。
       recid = 0
       counter = 0
       loop do
-        # => counter TODO: ++?
-        raise "sign compact failed." if 0 == LibSecp256k1.secp256k1_ecdsa_sign_compact(@ctx, message_digest, signature, private_key.bytes, nil, pointerof(counter), pointerof(recid))
+        raise "sign compact failed." if 0 == LibSecp256k1.secp256k1_ecdsa_sign_compact(@ctx,
+                                          message_digest,
+                                          signature,
+                                          private_key.bytes,
+                                          extended_nonce_function,
+                                          pointerof(counter),
+                                          pointerof(recid))
         break unless require_canonical && !is_canonical?(signature)
       end
-
-      signature[0] = 27 + 4 + recid
+      signature[0] = 27_u8 + 4 + recid
 
       return signature
     end
+
+    def pedersen_commit(blind_factor : Bytes, value : UInt64) : Bytes
+      commit = Bytes.new(BYTESIZE_COMMITMENT)
+      raise "pedersen commit failed." if 0 == LibSecp256k1.secp256k1_pedersen_commit(@ctx, commit, blind_factor, value)
+      return commit
+    end
+
+    # TODO: pedersen_blind_sum(blinds_in, non_neg)
+    # TODO: range_proof_sign(min_value, commit, commit_blind, nonce, base10_exp, min_bits, actual_value)
+
   end
 
   class PublicKey
-    # include Secp256k1Zkp::Utility
-
     def self.from_wif(wif_public_key : String, public_key_prefix = "BTS")
       prefix_size = public_key_prefix.bytesize
       prefix = wif_public_key[0, prefix_size]
@@ -614,7 +620,7 @@ module Secp256k1Zkp
       @public_keydata = public_keydata
     end
 
-    private def bytes
+    def bytes
       @public_keydata
     end
 
@@ -630,15 +636,37 @@ module Secp256k1Zkp
       return public_key_prefix + base58_encode(addr)
     end
 
-    # # => (public) 生成bts地址（序列化时公钥排序会用到。）
-    # def to_blockchain_address
-    #   return rmd160(sha512(self.bytes))
-    # end
+    # => (public) 生成bts地址（序列化时公钥排序会用到。）
+    def to_blockchain_address
+      return rmd160(sha512(self.bytes))
+    end
 
-    # def shared_secret(private_key)
-    #   share_public_key = self * private_key.bytes
-    #   return sha512(share_public_key.bytes[1..-1])
-    # end
+    def shared_secret(private_key : PrivateKey)
+      share_public_key = self * private_key.bytes
+      return sha512(share_public_key.bytes[1..-1])
+    end
+
+    def tweak_add(tweak : Bytes)
+      raise "invalid private key data." if tweak.size != BYTESIZE_PRIVATE_KEY_DATA
+      new_public_key = self.bytes.clone
+      raise "tweak error." if 0 == LibSecp256k1.secp256k1_ec_pubkey_tweak_add Secp256k1Zkp.verify_context.ptr, new_public_key, new_public_key.size, tweak
+      return self.class.new(new_public_key)
+    end
+
+    def +(tweak : Bytes)
+      tweak_add(tweak)
+    end
+
+    def tweak_mul(tweak : Bytes)
+      raise "invalid private key data." if tweak.size != BYTESIZE_PRIVATE_KEY_DATA
+      new_public_key = self.bytes.clone
+      raise "tweak error." if 0 == LibSecp256k1.secp256k1_ec_pubkey_tweak_mul Secp256k1Zkp.verify_context.ptr, new_public_key, new_public_key.size, tweak
+      return self.class.new(new_public_key)
+    end
+
+    def *(tweak : Bytes)
+      tweak_mul(tweak)
+    end
   end
 
   class PrivateKey
