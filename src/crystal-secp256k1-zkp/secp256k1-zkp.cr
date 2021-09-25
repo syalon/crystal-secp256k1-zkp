@@ -15,15 +15,6 @@ module Secp256k1Zkp
 
     type Secp256k1_context_t_ptr = Void*
 
-    # if (!_g_secp256k1_context_ptr)
-    # {
-    #   _g_secp256k1_context_ptr = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
-    # }
-
-    # $g_secp256k1_context_ptr : Secp256k1_context_t_ptr #
-    # LibSecp256k1.g_secp256k1_context_ptr = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN)
-    # raise "" if $g_secp256k1_context_ptr.nil?
-
     # => LibC::
     # alias Char = UInt8
     # alias UChar = Char
@@ -147,7 +138,7 @@ module Secp256k1Zkp
                              sig : LibC::UChar*,
                              siglen : Int32*,
                              seckey : LibC::UChar*,
-                             noncefp : Secp256k1_nonce_function_t,
+                             noncefp : Secp256k1_nonce_function_t*,
                              ndata : Void*) : Int32
 
     # /** Create a compact ECDSA signature (64 byte + recovery id).
@@ -166,7 +157,7 @@ module Secp256k1Zkp
                                      msg32 : LibC::UChar*,
                                      sig64 : LibC::UChar*,
                                      seckey : LibC::UChar*,
-                                     noncefp : Secp256k1_nonce_function_t,
+                                     noncefp : Secp256k1_nonce_function_t*,
                                      ndata : Void*,
                                      recid : Int32*) : Int32
 
@@ -480,17 +471,17 @@ module Secp256k1Zkp
   # /**
   #  *  各种数据结构字节数定义
   #  */
-  # #define kByteSizePrivateKeyData 32
-  # #define kByteSizePublicKeyPoint 65
-  # #define kByteSizeCompressedPublicKeyData 33
-  # #define kByteSizeCompactSignature 65
-  # #define kByteSizeBlindFactor 32
-  # #define kByteSizeCommitment 33
-  # #define kByteSizeSha256 32
+  BYTESIZE_PRIVATE_KEY_DATA            = 32
+  BYTESIZE_PUBLIC_KEY_POINT            = 65
+  BYTESIZE_COMPRESSED_PUBLICK_KEY_DATA = 33
+  BYTESIZE_COMPACT_SIGNATURE           = 65
+  BYTESIZE_BLIND_FACTOR                = 32
+  BYTESIZE_COMMITMENT                  = 33
+  BYTESIZE_SHA256                      = 32
 
   # typedef struct
   # {
-  #   unsigned char data[kByteSizePrivateKeyData];
+  #   unsigned char data[BYTESIZE_PRIVATE_KEY_DATA];
   # } rb_struct_private_key;
 
   # //  the full non-compressed version of the ECC point
@@ -519,14 +510,11 @@ module Secp256k1Zkp
   #   unsigned char data[kByteSizeCommitment];
   # } rb_struct_commitment_type;
 
-  @@g_secp256k1_context_ptr : LibSecp256k1::Secp256k1_context_t_ptr? = nil
+  @@_verify_context : Context? = nil
 
-  def self.g_secp256k1_context_ptr : LibSecp256k1::Secp256k1_context_t_ptr
-    if @@g_secp256k1_context_ptr.nil?
-      @@g_secp256k1_context_ptr = LibSecp256k1.secp256k1_context_create(LibSecp256k1::SECP256K1_CONTEXT_VERIFY | LibSecp256k1::SECP256K1_CONTEXT_SIGN)
-    end
-    raise "secp256k1_context_create failed." if @@g_secp256k1_context_ptr.nil?
-    return @@g_secp256k1_context_ptr.not_nil!
+  def self.verify_context : Context
+    @@_verify_context ||= Context.new(LibSecp256k1::SECP256K1_CONTEXT_VERIFY | LibSecp256k1::SECP256K1_CONTEXT_SIGN)
+    return @@_verify_context.not_nil!
   end
 
   class Context
@@ -534,32 +522,73 @@ module Secp256k1Zkp
       return new(LibSecp256k1::SECP256K1_CONTEXT_ALL)
     end
 
+    @flag : Int32
+
     def initialize(flag = LibSecp256k1::SECP256K1_CONTEXT_ALL)
       @ctx = LibSecp256k1.secp256k1_context_create(flag)
       raise "secp256k1_context_create failed." if @ctx.nil?
+      @flag = flag
     end
 
-    def is_valid_public_keydata?(public_keydata : String) : Bool
-      bytes = public_keydata.to_slice
-      return nif 0 != secp256k1_ec_pubkey_verify(@ctx, bytes.to_unsafe, bytes.size)
+    def is_valid_public_keydata?(public_keydata : Bytes) : Bool
+      return 0 != LibSecp256k1.secp256k1_ec_pubkey_verify(@ctx, public_keydata, public_keydata.size)
     end
 
-    def is_valid_private_keydata?(private_keydata : String) : Bool
+    def is_valid_private_keydata?(private_keydata : Bytes) : Bool
+      return private_keydata.size == BYTESIZE_PRIVATE_KEY_DATA && 0 != LibSecp256k1.secp256k1_ec_seckey_verify(@ctx, public_keydata)
+    end
+
+    # static int extended_nonce_function(unsigned char *nonce32, const unsigned char *msg32,
+    #                                    const unsigned char *key32, unsigned int attempt,
+    #                                    const void *data)
+    # {
+    #   unsigned int *extra = (unsigned int *)data;
+    #   (*extra)++;
+    #   return secp256k1_nonce_function_default(nonce32, msg32, key32, *extra, 0);
+    # };
+
+    private def is_canonical?(sign : Bytes) : Bool
+      #   const unsigned char *c = sign->data;
+
       # => TODO:
-      # secp256k1_ec_seckey_verify
+      # if (!(c[1] & 0x80) && !(c[1] == 0 && !(c[2] & 0x80)) && !(c[33] & 0x80) && !(c[33] == 0 && !(c[34] & 0x80)))
+      # {
+      #   return 1;
+      # }
+
+      return false
     end
 
-    def sign_compact(message_digest, private_key, require_canonical = true)
-      # => TODO:
-      secp256k1_ecdsa_sign_compact(@ctx, nil, nil, nil, nil, nil, nil)
-      # secp256k1_ecdsa_sign_compact
+    def sign_compact(message_digest : Bytes, private_key : PrivateKey, require_canonical = true) : Bytes
+      raise "invalid message digest32." if message_digest.size != BYTESIZE_SHA256
+      raise "invalid secp256k1 context, missing `SECP256K1_CONTEXT_SIGN` flag." if 0 == (@flag & LibSecp256k1::SECP256K1_CONTEXT_SIGN)
+
+      #  //  初始化部分参数
+      #  digest32 = (const unsigned char *)RSTRING_PTR(message_digest);
+      #  require_canonical = RTEST(v_require_canonical) ? 1 : 0;
+
+      signature = Bytes.new(BYTESIZE_COMPACT_SIGNATURE)
+
       # fun secp256k1_ecdsa_sign_compact(ctx : Secp256k1_context_t_ptr,
-      #                                msg32 : LibC::UChar*,
-      #                                sig64 : LibC::UChar*,
-      #                                seckey : LibC::UChar*,
-      #                                noncefp : Secp256k1_nonce_function_t,
-      #                                ndata : Void*,
-      #                                recid : Int32*) : Int32
+      #                                  msg32 : LibC::UChar*,
+      #                                  sig64 : LibC::UChar*,
+      #                                  seckey : LibC::UChar*,
+      #                                  noncefp : Secp256k1_nonce_function_t,
+      #                                  ndata : Void*,
+      #                                  recid : Int32*) : Int32
+
+      # => 循环计算签名，直到找到合适的 canonical 签名。
+      recid = 0
+      counter = 0
+      loop do
+        # => counter TODO: ++?
+        raise "sign compact failed." if 0 == LibSecp256k1.secp256k1_ecdsa_sign_compact(@ctx, message_digest, signature, private_key.bytes, nil, pointerof(counter), pointerof(recid))
+        break unless require_canonical && !is_canonical?(signature)
+      end
+
+      signature[0] = 27 + 4 + recid
+
+      return signature
     end
   end
 
@@ -581,7 +610,7 @@ module Secp256k1Zkp
     end
 
     def initialize(public_keydata : Bytes)
-      raise "invalid public key data." if 0 == LibSecp256k1.secp256k1_ec_pubkey_verify(Secp256k1Zkp.g_secp256k1_context_ptr, public_keydata, public_keydata.size)
+      raise "invalid public key data." unless Secp256k1Zkp.verify_context.is_valid_public_keydata?(public_keydata)
       @public_keydata = public_keydata
     end
 
@@ -613,7 +642,68 @@ module Secp256k1Zkp
   end
 
   class PrivateKey
-    def initialize(private_keydata)
+    def bytes
+      @private_keydata
     end
+
+    def initialize(private_keydata : Bytes)
+      @private_keydata = private_keydata
+    end
+
+    # include Secp256k1Zkp::Utility
+
+    # SECP256K1_CURVE_ORDER = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+
+    # def self.nonce
+    #   # => 私钥有效范围。[1, SECP256K1_CURVE_ORDER)。 REMARK：大部分 lib 范围是 [1, SECP256K1_CURVE_ORDER] 的闭区间，该C库范围为开区间。
+    #   # SecureRandom.random_number(SECP256K1_CURVE_ORDER - 1) + 1
+    # end
+
+    def self.random
+      # TODO: 私钥有效范围。[1, SECP256K1_CURVE_ORDER) nonce
+      private_keydata = Bytes.new(Secp256k1Zkp::BYTESIZE_PRIVATE_KEY_DATA)
+      Random::Secure.random_bytes(private_keydata)
+      return new(private_keydata)
+    end
+
+    # => role - owner / active
+    def self.from_account_and_password(account, password, role = "active")
+      return from_seed("#{account}#{role}#{password}")
+    end
+
+    def self.from_seed(seed)
+      return new(sha256(seed))
+    end
+
+    def self.from_wif(wif_private_key_string : String)
+      raw = base58_decode(wif_private_key_string)
+      version = raw[0]
+      raise "invalid private key." if version != 0x80
+      # => raw = [1B]0x80 + [32B]privatekey + [4B]checksum
+      checksum_size = 4
+      checksum4 = raw[-checksum_size..-1]
+      private_key_with_prefix = raw[0...-checksum_size]
+      digest = sha256(sha256(private_key_with_prefix))
+      raise "invalid private key." if checksum4 != digest[0, checksum_size]
+      return new(raw[1, 32])
+    end
+
+    def to_wif
+      # private_key_with_prefix = 0x80.chr + self.bytes
+      io = IO::Memory.new
+      io.write_byte(0x80)
+      io.write(self.bytes)
+      private_key_with_prefix = io.to_slice
+
+      checksum = sha256(sha256(private_key_with_prefix))[0, 4]
+
+      io.write(checksum)
+      return base58_encode(io.to_slice)
+    end
+
+    # def shared_secret(public_key)
+    #   share_public_key = public_key * self.bytes
+    #   return sha512(share_public_key.bytes[1..-1])
+    # end
   end
 end

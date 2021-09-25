@@ -58,7 +58,22 @@ describe Secp256k1Zkp do
 
   it "publick key" do
     pubkey = Secp256k1Zkp::PublicKey.from_wif("BTS6ictwisU3gYaq27t3Em1TZDbzfaJeNf2SAXq9S77KgQHhxaj7C")
-    p! pubkey.to_blockchain_address
     pubkey.to_wif.should eq("BTS6ictwisU3gYaq27t3Em1TZDbzfaJeNf2SAXq9S77KgQHhxaj7C")
+  end
+
+  it "private key" do
+    p! Secp256k1Zkp::PrivateKey.random.to_wif
+    p! Secp256k1Zkp::PrivateKey.from_account_and_password("committee-account", "123456").to_wif
+
+    prikey = Secp256k1Zkp::PrivateKey.from_wif("5Kg7Szeo9LHUrPW4JQRC5bckgoGVADiVgeqeXufWWGea9tMpGfX")
+    prikey.to_wif.should eq("5Kg7Szeo9LHUrPW4JQRC5bckgoGVADiVgeqeXufWWGea9tMpGfX")
+  end
+
+  it "sign" do
+    prikey = Secp256k1Zkp::PrivateKey.random
+    message_digest = sha256("abc")
+    signature = Secp256k1Zkp::Context.new.sign_compact(message_digest, prikey, true)
+    p! signature
+    signature.should_not eq(nil)
   end
 end
