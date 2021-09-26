@@ -429,46 +429,6 @@ module Secp256k1Zkp
                                   plen : Int32) : Int32
   end
 
-  # //  Secp256k1Zkp::Context
-  # rb_cSecp256k1Context = rb_define_class_under(rb_mSecp256k1, "Context", rb_cObject);
-
-  # rb_undef_alloc_func(rb_cSecp256k1Context);
-  # rb_define_alloc_func(rb_cSecp256k1Context, dm_context_alloc);
-  # rb_define_method(rb_cSecp256k1Context, "initialize", dm_context_initialize, 1);
-  # rb_define_method(rb_cSecp256k1Context, "is_valid_public_keydata?", dm_context_verify_public_keydata, 1);
-  # rb_define_method(rb_cSecp256k1Context, "is_valid_private_keydata?", dm_context_verify_private_keydata, 1);
-  # rb_define_method(rb_cSecp256k1Context, "clone", dm_context_clone, 0);
-  # rb_define_method(rb_cSecp256k1Context, "dup", dm_context_clone, 0);
-  # rb_define_method(rb_cSecp256k1Context, "sign_compact", dm_context_sign_compact, -1);
-  # rb_define_method(rb_cSecp256k1Context, "pedersen_commit", dm_context_pedersen_commit, 2);
-  # rb_define_method(rb_cSecp256k1Context, "pedersen_blind_sum", dm_context_pedersen_blind_sum, 2);
-  # rb_define_method(rb_cSecp256k1Context, "range_proof_sign", dm_context_range_proof_sign, 7);
-
-  # //  Secp256k1Zkp::PublicKey
-  # rb_cSecp256k1PublicKey = rb_define_class_under(rb_mSecp256k1, "PublicKey", rb_cObject);
-
-  # rb_undef_alloc_func(rb_cSecp256k1PublicKey);
-  # rb_define_alloc_func(rb_cSecp256k1PublicKey, dm_public_key_alloc);
-  # rb_define_method(rb_cSecp256k1PublicKey, "initialize", dm_public_key_initialize, 1);
-  # rb_define_method(rb_cSecp256k1PublicKey, "bytes", dm_public_key_bytes, 0);
-  # rb_define_method(rb_cSecp256k1PublicKey, "tweak_add", dm_public_key_tweak_add, 1);
-  # rb_define_method(rb_cSecp256k1PublicKey, "tweak_mul", dm_public_key_tweak_mul, 1);
-  # rb_define_alias(rb_cSecp256k1PublicKey, "+", "tweak_add");
-  # rb_define_alias(rb_cSecp256k1PublicKey, "*", "tweak_mul");
-
-  # //  Secp256k1Zkp::PrivateKey
-  # rb_cSecp256k1PrivateKey = rb_define_class_under(rb_mSecp256k1, "PrivateKey", rb_cObject);
-
-  # rb_undef_alloc_func(rb_cSecp256k1PrivateKey);
-  # rb_define_alloc_func(rb_cSecp256k1PrivateKey, dm_private_key_alloc);
-  # rb_define_method(rb_cSecp256k1PrivateKey, "initialize", dm_private_key_initialize, 1);
-  # rb_define_method(rb_cSecp256k1PrivateKey, "bytes", dm_private_key_bytes, 0);
-  # rb_define_method(rb_cSecp256k1PrivateKey, "tweak_add", dm_private_key_tweak_add, 1);
-  # rb_define_method(rb_cSecp256k1PrivateKey, "tweak_mul", dm_private_key_tweak_mul, 1);
-  # rb_define_alias(rb_cSecp256k1PrivateKey, "+", "tweak_add");
-  # rb_define_alias(rb_cSecp256k1PrivateKey, "*", "tweak_mul");
-  # rb_define_method(rb_cSecp256k1PrivateKey, "to_public_key", dm_private_key_to_public_key, 0);
-
   # /**
   #  *  各种数据结构字节数定义
   #  */
@@ -480,42 +440,11 @@ module Secp256k1Zkp
   BYTESIZE_COMMITMENT                  = 33
   BYTESIZE_SHA256                      = 32
 
-  # typedef struct
-  # {
-  #   unsigned char data[BYTESIZE_PRIVATE_KEY_DATA];
-  # } rb_struct_private_key;
+  @@__default_context : Context? = nil
 
-  # //  the full non-compressed version of the ECC point
-  # typedef struct
-  # {
-  #   unsigned char data[kByteSizePublicKeyPoint];
-  # } rb_struct_pubkey_point;
-
-  # typedef struct
-  # {
-  #   unsigned char data[kByteSizeCompressedPublicKeyData];
-  # } rb_struct_pubkey_compressed;
-
-  # typedef struct
-  # {
-  #   unsigned char data[kByteSizeCompactSignature];
-  # } rb_struct_compact_signature;
-
-  # typedef struct
-  # {
-  #   unsigned char data[kByteSizeBlindFactor];
-  # } rb_struct_blind_factor_type;
-
-  # typedef struct
-  # {
-  #   unsigned char data[kByteSizeCommitment];
-  # } rb_struct_commitment_type;
-
-  @@_verify_context : Context? = nil
-
-  def self.verify_context : Context
-    @@_verify_context ||= Context.new(LibSecp256k1::SECP256K1_CONTEXT_VERIFY | LibSecp256k1::SECP256K1_CONTEXT_SIGN)
-    return @@_verify_context.not_nil!
+  def self.default_context : Context
+    @@__default_context ||= Context.new(LibSecp256k1::SECP256K1_CONTEXT_VERIFY | LibSecp256k1::SECP256K1_CONTEXT_SIGN)
+    return @@__default_context.not_nil!
   end
 
   class Context
@@ -526,7 +455,7 @@ module Secp256k1Zkp
     @flag : Int32
     @ctx : LibSecp256k1::Secp256k1_context_t_ptr
 
-    def ptr
+    def to_unsafe
       @ctx
     end
 
@@ -616,7 +545,7 @@ module Secp256k1Zkp
     end
 
     def initialize(public_keydata : Bytes)
-      raise "invalid public key data." unless Secp256k1Zkp.verify_context.is_valid_public_keydata?(public_keydata)
+      raise "invalid public key data." unless Secp256k1Zkp.default_context.is_valid_public_keydata?(public_keydata)
       @public_keydata = public_keydata
     end
 
@@ -649,7 +578,7 @@ module Secp256k1Zkp
     def tweak_add(tweak : Bytes)
       raise "invalid private key data." if tweak.size != BYTESIZE_PRIVATE_KEY_DATA
       new_public_key = self.bytes.clone
-      raise "tweak error." if 0 == LibSecp256k1.secp256k1_ec_pubkey_tweak_add Secp256k1Zkp.verify_context.ptr, new_public_key, new_public_key.size, tweak
+      raise "tweak error." if 0 == LibSecp256k1.secp256k1_ec_pubkey_tweak_add(Secp256k1Zkp.default_context, new_public_key, new_public_key.size, tweak)
       return self.class.new(new_public_key)
     end
 
@@ -660,7 +589,7 @@ module Secp256k1Zkp
     def tweak_mul(tweak : Bytes)
       raise "invalid private key data." if tweak.size != BYTESIZE_PRIVATE_KEY_DATA
       new_public_key = self.bytes.clone
-      raise "tweak error." if 0 == LibSecp256k1.secp256k1_ec_pubkey_tweak_mul Secp256k1Zkp.verify_context.ptr, new_public_key, new_public_key.size, tweak
+      raise "tweak error." if 0 == LibSecp256k1.secp256k1_ec_pubkey_tweak_mul(Secp256k1Zkp.default_context, new_public_key, new_public_key.size, tweak)
       return self.class.new(new_public_key)
     end
 
@@ -716,6 +645,35 @@ module Secp256k1Zkp
       return new(raw[1, 32])
     end
 
+    def tweak_add(tweak : Bytes)
+      raise "invalid private key data." if tweak.size != BYTESIZE_PRIVATE_KEY_DATA
+      new_private_key = self.bytes.clone
+      raise "tweak error." if 0 == LibSecp256k1.secp256k1_ec_privkey_tweak_add(Secp256k1Zkp.default_context, new_private_key, tweak)
+      return self.class.new(new_private_key)
+    end
+
+    def +(tweak : Bytes)
+      tweak_add(tweak)
+    end
+
+    def tweak_mul(tweak : Bytes)
+      raise "invalid private key data." if tweak.size != BYTESIZE_PRIVATE_KEY_DATA
+      new_private_key = self.bytes.clone
+      raise "tweak error." if 0 == LibSecp256k1.secp256k1_ec_privkey_tweak_mul(Secp256k1Zkp.default_context, new_private_key, tweak)
+      return self.class.new(new_private_key)
+    end
+
+    def *(tweak : Bytes)
+      tweak_mul(tweak)
+    end
+
+    def to_public_key
+      new_public_key = Bytes.new(BYTESIZE_COMPRESSED_PUBLICK_KEY_DATA)
+      pubkey_len = new_public_key.size
+      raise "generate public key error." if 0 == LibSecp256k1.secp256k1_ec_pubkey_create(Secp256k1Zkp.default_context, new_public_key, pointerof(pubkey_len), self.bytes, 1)
+      return PublicKey.new(new_public_key)
+    end
+
     def to_wif
       # private_key_with_prefix = 0x80.chr + self.bytes
       io = IO::Memory.new
@@ -729,9 +687,9 @@ module Secp256k1Zkp
       return base58_encode(io.to_slice)
     end
 
-    # def shared_secret(public_key)
-    #   share_public_key = public_key * self.bytes
-    #   return sha512(share_public_key.bytes[1..-1])
-    # end
+    def shared_secret(public_key : PublicKey)
+      share_public_key = public_key * self.bytes
+      return sha512(share_public_key.bytes[1..-1])
+    end
   end
 end

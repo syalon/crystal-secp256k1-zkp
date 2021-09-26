@@ -59,8 +59,6 @@ describe Secp256k1Zkp do
   it "publick key" do
     pubkey = Secp256k1Zkp::PublicKey.from_wif("BTS6ictwisU3gYaq27t3Em1TZDbzfaJeNf2SAXq9S77KgQHhxaj7C")
     pubkey.to_wif.should eq("BTS6ictwisU3gYaq27t3Em1TZDbzfaJeNf2SAXq9S77KgQHhxaj7C")
-
-    pubkey.to_blockchain_address
   end
 
   it "private key" do
@@ -78,5 +76,23 @@ describe Secp256k1Zkp do
     signature = ctx.sign_compact(message_digest, prikey, false)
     p! signature
     signature.should_not eq(nil)
+  end
+
+  it "tweak" do
+    prikey01 = Secp256k1Zkp::PrivateKey.random
+    prikey02 = Secp256k1Zkp::PrivateKey.random
+
+    pubkey01 = prikey01.to_public_key
+    pubkey02 = prikey02.to_public_key
+
+    p! pubkey01 + Secp256k1Zkp::PrivateKey.random.bytes
+    p! pubkey02 * Secp256k1Zkp::PrivateKey.random.bytes
+    p! prikey01 + Secp256k1Zkp::PrivateKey.random.bytes
+    p! prikey02 * Secp256k1Zkp::PrivateKey.random.bytes
+
+    prikey01.shared_secret(pubkey01).should eq(pubkey01.shared_secret(prikey01))
+
+    p! prikey01.to_wif
+    p! pubkey01.to_wif
   end
 end
