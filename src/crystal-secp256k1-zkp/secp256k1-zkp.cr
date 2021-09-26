@@ -555,13 +555,7 @@ module Secp256k1Zkp
 
     def to_wif(public_key_prefix = "BTS")
       checksum = rmd160(self.bytes)
-
-      # => addr = self.bytes + checksum[0, 4]
-      io = IO::Memory.new
-      io.write(self.bytes)
-      io.write(checksum[0, 4])
-      addr = io.to_slice
-
+      addr = self.bytes + checksum[0, 4]
       return public_key_prefix + base58_encode(addr)
     end
 
@@ -675,16 +669,9 @@ module Secp256k1Zkp
     end
 
     def to_wif
-      # private_key_with_prefix = 0x80.chr + self.bytes
-      io = IO::Memory.new
-      io.write_byte(0x80)
-      io.write(self.bytes)
-      private_key_with_prefix = io.to_slice
-
+      private_key_with_prefix = Bytes[0x80] + self.bytes
       checksum = sha256(sha256(private_key_with_prefix))[0, 4]
-
-      io.write(checksum)
-      return base58_encode(io.to_slice)
+      return base58_encode(private_key_with_prefix + checksum)
     end
 
     def shared_secret(public_key : PublicKey)
