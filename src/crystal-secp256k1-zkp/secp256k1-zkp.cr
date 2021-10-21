@@ -2,8 +2,6 @@ require "./utility"
 
 # TODO: Write documentation for `Secp256k1Zkp`
 module Secp256k1Zkp
-  include Utility
-
   VERSION = "0.9.0"
 
   # 静态链接直接链接指定目录，动态链接忽略。
@@ -534,6 +532,9 @@ module Secp256k1Zkp
   end
 
   class PublicKey
+    include Secp256k1Zkp::Utility
+    extend Secp256k1Zkp::Utility
+
     def self.from_wif(wif_public_key : String, public_key_prefix = "BTS")
       prefix_size = public_key_prefix.bytesize
       prefix = wif_public_key[0, prefix_size]
@@ -597,6 +598,9 @@ module Secp256k1Zkp
   end
 
   class PrivateKey
+    include Secp256k1Zkp::Utility
+    extend Secp256k1Zkp::Utility
+
     def bytes
       @private_keydata
     end
