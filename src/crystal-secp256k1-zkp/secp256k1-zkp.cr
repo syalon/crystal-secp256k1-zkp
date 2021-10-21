@@ -1,5 +1,7 @@
 # TODO: Write documentation for `Secp256k1Zkp`
 module Secp256k1Zkp
+  include Utility
+
   VERSION = "0.9.0"
 
   # 静态链接直接链接指定目录，动态链接忽略。
