@@ -1,3 +1,5 @@
+require "./utility"
+
 # TODO: Write documentation for `Secp256k1Zkp`
 module Secp256k1Zkp
   include Utility
