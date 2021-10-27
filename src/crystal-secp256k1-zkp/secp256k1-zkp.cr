@@ -483,7 +483,7 @@ module Secp256k1Zkp
       clone
     end
 
-    private def is_canonical?(c : Bytes) : Bool
+    def is_canonical?(c : Bytes) : Bool
       return !((c[1] & 0x80) != 0) &&
         !(c[1] == 0 && !((c[2] & 0x80) != 0)) &&
         !((c[33] & 0x80) != 0) &&
@@ -508,13 +508,14 @@ module Secp256k1Zkp
       loop do
         raise "sign compact failed." if 0 == LibSecp256k1.secp256k1_ecdsa_sign_compact(@ctx,
                                           message_digest,
-                                          signature,
+                                          signature[1, BYTESIZE_COMPACT_SIGNATURE - 1],
                                           private_key.bytes,
                                           extended_nonce_function,
                                           pointerof(counter),
                                           pointerof(recid))
         break unless require_canonical && !is_canonical?(signature)
       end
+
       signature[0] = 27_u8 + 4 + recid
 
       return signature
@@ -551,6 +552,29 @@ module Secp256k1Zkp
 
     def initialize(public_keydata : Bytes)
       raise "invalid public key data." unless Secp256k1Zkp.default_context.is_valid_public_keydata?(public_keydata)
+      @public_keydata = public_keydata
+    end
+
+    def initialize(compact_signature65 : Bytes, digest256 : Bytes, check_canonical = true)
+      nV = compact_signature65[0]
+      raise "unable to reconstruct public key from signature" if nV < 27 || nV >= 35
+
+      if check_canonical
+        raise "signature is not canonical" unless Secp256k1Zkp.default_context.is_canonical?(compact_signature65)
+      end
+
+      public_keydata = Bytes.new(BYTESIZE_COMPRESSED_PUBLICK_KEY_DATA)
+      pk_len = 0
+
+      raise "recover failed." if 0 == LibSecp256k1.secp256k1_ecdsa_recover_compact(Secp256k1Zkp.default_context,
+                                   digest256,
+                                   compact_signature65[1, 64],
+                                   public_keydata,
+                                   pointerof(pk_len),
+                                   1, # compressed
+                                   (nV - 27) & 3                                 )
+      raise "recover failed." if pk_len != public_keydata.size
+
       @public_keydata = public_keydata
     end
 

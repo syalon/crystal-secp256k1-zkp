@@ -61,6 +61,24 @@ describe Secp256k1Zkp do
     pubkey.to_wif.should eq("BTS6ictwisU3gYaq27t3Em1TZDbzfaJeNf2SAXq9S77KgQHhxaj7C")
   end
 
+  it "test recover" do
+    prikey = Secp256k1Zkp::PrivateKey.random
+    pubkey = prikey.to_public_key
+
+    testdata = "abc1234"
+    testdata_digest = sha256(testdata)
+
+    signature = Secp256k1Zkp::Context.default.sign_compact(testdata_digest, prikey)
+
+    result = begin
+      Secp256k1Zkp::PublicKey.new(signature, testdata_digest).to_wif
+    rescue e
+      e.message
+    end
+
+    result.should eq(pubkey.to_wif)
+  end
+
   it "private key" do
     p! Secp256k1Zkp::PrivateKey.random.to_wif
     p! Secp256k1Zkp::PrivateKey.from_account_and_password("committee-account", "123456").to_wif
