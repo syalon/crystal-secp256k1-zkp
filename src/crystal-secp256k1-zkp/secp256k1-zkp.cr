@@ -536,7 +536,7 @@ module Secp256k1Zkp
     include Secp256k1Zkp::Utility
     extend Secp256k1Zkp::Utility
 
-    def self.from_wif(wif_public_key : String, public_key_prefix = "BTS")
+    def self.from_wif(wif_public_key : String, public_key_prefix : String)
       prefix_size = public_key_prefix.bytesize
       prefix = wif_public_key[0, prefix_size]
       raise "invalid public key prefix." if prefix != public_key_prefix
@@ -582,7 +582,7 @@ module Secp256k1Zkp
       @public_keydata
     end
 
-    def to_wif(public_key_prefix = "BTS")
+    def to_wif(public_key_prefix : String)
       checksum = rmd160(self.bytes)
       addr = self.bytes + checksum[0, 4]
       return public_key_prefix + base58_encode(addr)

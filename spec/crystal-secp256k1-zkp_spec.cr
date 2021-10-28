@@ -57,8 +57,8 @@ describe Secp256k1Zkp do
   end
 
   it "publick key" do
-    pubkey = Secp256k1Zkp::PublicKey.from_wif("BTS6ictwisU3gYaq27t3Em1TZDbzfaJeNf2SAXq9S77KgQHhxaj7C")
-    pubkey.to_wif.should eq("BTS6ictwisU3gYaq27t3Em1TZDbzfaJeNf2SAXq9S77KgQHhxaj7C")
+    pubkey = Secp256k1Zkp::PublicKey.from_wif("BTS6ictwisU3gYaq27t3Em1TZDbzfaJeNf2SAXq9S77KgQHhxaj7C", "BTS")
+    pubkey.to_wif("BTS").should eq("BTS6ictwisU3gYaq27t3Em1TZDbzfaJeNf2SAXq9S77KgQHhxaj7C")
   end
 
   it "test recover" do
@@ -71,12 +71,12 @@ describe Secp256k1Zkp do
     signature = Secp256k1Zkp::Context.default.sign_compact(testdata_digest, prikey)
 
     result = begin
-      Secp256k1Zkp::PublicKey.new(signature, testdata_digest).to_wif
+      Secp256k1Zkp::PublicKey.new(signature, testdata_digest).to_wif("BTS")
     rescue e
       e.message
     end
 
-    result.should eq(pubkey.to_wif)
+    result.should eq(pubkey.to_wif("BTS"))
   end
 
   it "private key" do
@@ -111,6 +111,6 @@ describe Secp256k1Zkp do
     prikey01.shared_secret(pubkey01).should eq(pubkey01.shared_secret(prikey01))
 
     p! prikey01.to_wif
-    p! pubkey01.to_wif
+    p! pubkey01.to_wif("BTS")
   end
 end
