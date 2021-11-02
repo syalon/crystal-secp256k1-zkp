@@ -5,7 +5,7 @@ module Secp256k1Zkp
   VERSION = "0.9.0"
 
   # 静态链接直接链接指定目录，动态链接忽略。
-  @[Link(ldflags: "-L#{__DIR__}/../secp256k1-zkp/.libs -lsecp256k1 -lgmp")]
+  @[Link(ldflags: "-L#{__DIR__}/../../secp256k1-zkp/.libs -lsecp256k1 -lgmp")]
   lib LibSecp256k1
     # Flags to pass to secp256k1_context_create.
     SECP256K1_CONTEXT_VERIFY     = (1 << 0)
