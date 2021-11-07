@@ -441,6 +441,7 @@ module Secp256k1Zkp
   BYTESIZE_BLIND_FACTOR                = 32
   BYTESIZE_COMMITMENT                  = 33
   BYTESIZE_SHA256                      = 32
+  BYTESIZE_PTS_ADDRESS                 = 25
 
   @@__default_context : Context? = nil
 
@@ -532,6 +533,102 @@ module Secp256k1Zkp
 
   end
 
+  # a 160 bit hash of a public key
+  class Address
+    include Secp256k1Zkp::Utility
+
+    @addr : Bytes # 20 bytes # ripemd160
+
+    def bytes
+      @addr
+    end
+
+    def initialize(base58str : String, addr_prefix : String)
+      raise "invalid base58 address: #{base58str}" unless is_valid?(base58str, addr_prefix)
+      v = base58_decode(base58str[addr_prefix.bytesize..-1])
+      @addr = v[0, v.size - 4]
+    end
+
+    def is_valid?(base58str : String, addr_prefix : String)
+      prefix_len = addr_prefix.bytesize
+
+      return false if base58str.bytesize <= prefix_len
+      return false if base58str[0, prefix_len] != addr_prefix
+
+      v = base58_decode(base58str[prefix_len..-1]) rescue nil
+      return false if v.nil?
+
+      return false if v.size != 20 + 4
+
+      checksum = rmd160(v[0, v.size - 4])
+      return false if v[20, 4] != checksum[0, 4]
+
+      return true
+    end
+
+    def initialize(public_key : PublicKey)
+      @addr = rmd160(sha512(public_key.bytes))
+    end
+
+    def initialize(pts_address : PtsAddress)
+      @addr = rmd160(pts_address.bytes)
+    end
+
+    def to_wif(addr_prefix : String) : String
+      checksum = rmd160(@addr)
+      return addr_prefix + base58_encode(@addr + checksum[0, 4])
+    end
+  end
+
+  class PtsAddress
+    include Secp256k1Zkp::Utility
+
+    @addr_data : Bytes
+
+    def bytes
+      @addr_data
+    end
+
+    def initialize(base58str : String)
+      @addr_data = base58_decode(base58str)
+      raise "invalid pts_address #{base58str}" if @addr_data.size != BYTESIZE_PTS_ADDRESS
+      raise "invalid pts_address #{base58str}" unless is_valid?
+    end
+
+    def initialize(public_key : PublicKey, compressed : Bool, version : UInt8)
+      if compressed
+        sha2 = sha256(public_key.bytes)
+      else
+        sha2 = sha256(public_key.ecc_point_bytes)
+      end
+
+      # ver 1B + rep 20B + check 4B
+      io = IO::Memory.new
+      io.write_byte(version)
+
+      io.write(rmd160(sha2))
+
+      check = sha256(sha256(io.to_slice))
+      io.write(check[0, 4])
+
+      @addr_data = io.to_slice
+    end
+
+    # Checks the address to verify it has a valid checksum
+    def is_valid?
+      check = sha256(sha256(@addr_data[0, 21]))
+      return @addr_data[21, 4] == check[0, 4]
+    end
+
+    def to_wif
+      return base58_encode(@addr_data)
+    end
+
+    def to_address : Address
+      Address.new(self)
+    end
+  end
+
   class PublicKey
     include Secp256k1Zkp::Utility
     extend Secp256k1Zkp::Utility
@@ -582,21 +679,24 @@ module Secp256k1Zkp
       @public_keydata
     end
 
+    def ecc_point_bytes : Bytes
+      pk_len = @public_keydata.size
+      output = @public_keydata + Bytes.new(BYTESIZE_PUBLIC_KEY_POINT - pk_len, 0_u8)
+
+      raise "decompress failed." if 0 == LibSecp256k1.secp256k1_ec_pubkey_decompress(Secp256k1Zkp.default_context, output, pointerof(pk_len))
+      raise "decompress failed." if pk_len != output.size
+
+      return output
+    end
+
     def to_wif(public_key_prefix : String)
       checksum = rmd160(self.bytes)
       addr = self.bytes + checksum[0, 4]
       return public_key_prefix + base58_encode(addr)
     end
 
-    def to_address(addr_prefix : String) : String
-      bin_addr = to_address
-      checksum = rmd160(bin_addr)
-      return addr_prefix + base58_encode(bin_addr + checksum[0, 4])
-    end
-
-    # => (public) 生成bts地址（序列化时公钥排序会用到。）
-    def to_address : Bytes
-      return rmd160(sha512(self.bytes))
+    def to_address : Address
+      Address.new(self)
     end
 
     def shared_secret(private_key : PrivateKey)
