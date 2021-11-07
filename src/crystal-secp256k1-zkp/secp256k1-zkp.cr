@@ -588,8 +588,14 @@ module Secp256k1Zkp
       return public_key_prefix + base58_encode(addr)
     end
 
+    def to_address(addr_prefix : String) : String
+      bin_addr = to_address
+      checksum = rmd160(bin_addr)
+      return addr_prefix + base58_encode(bin_addr + checksum[0, 4])
+    end
+
     # => (public) 生成bts地址（序列化时公钥排序会用到。）
-    def to_blockchain_address
+    def to_address : Bytes
       return rmd160(sha512(self.bytes))
     end
 

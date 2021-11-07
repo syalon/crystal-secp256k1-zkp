@@ -59,6 +59,7 @@ describe Secp256k1Zkp do
   it "publick key" do
     pubkey = Secp256k1Zkp::PublicKey.from_wif("BTS6ictwisU3gYaq27t3Em1TZDbzfaJeNf2SAXq9S77KgQHhxaj7C", "BTS")
     pubkey.to_wif("BTS").should eq("BTS6ictwisU3gYaq27t3Em1TZDbzfaJeNf2SAXq9S77KgQHhxaj7C")
+    pubkey.to_address("BTS").should eq("BTSMyHP3z7p6TY1LJr5bV8BxJekHFgiPaxXZ")
   end
 
   it "test recover" do
