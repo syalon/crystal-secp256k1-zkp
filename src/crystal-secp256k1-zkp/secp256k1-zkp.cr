@@ -434,14 +434,20 @@ module Secp256k1Zkp
   # /**
   #  *  各种数据结构字节数定义
   #  */
-  BYTESIZE_PRIVATE_KEY_DATA            = 32
-  BYTESIZE_PUBLIC_KEY_POINT            = 65
-  BYTESIZE_COMPRESSED_PUBLICK_KEY_DATA = 33
-  BYTESIZE_COMPACT_SIGNATURE           = 65
-  BYTESIZE_BLIND_FACTOR                = 32
-  BYTESIZE_COMMITMENT                  = 33
-  BYTESIZE_SHA256                      = 32
-  BYTESIZE_PTS_ADDRESS                 = 25
+  # BYTESIZE_PRIVATE_KEY_DATA = 32
+  BYTESIZE_PUBLIC_KEY_POINT = 65
+  # BYTESIZE_COMPRESSED_PUBLIC_KEY_DATA = 33
+  # BYTESIZE_COMPACT_SIGNATURE = 65
+  BYTESIZE_BLIND_FACTOR = 32
+  # BYTESIZE_COMMITMENT   = 33
+  BYTESIZE_SHA256 = 32
+  # BYTESIZE_PTS_ADDRESS = 25
+
+  alias RawdataPrivateKey = StaticArray(UInt8, 32)
+  alias RawdataCompressedPublicKey = StaticArray(UInt8, 33)
+  alias RawdataCompactSignature = StaticArray(UInt8, 65)
+  alias RawdataCommitment = StaticArray(UInt8, 33)
+  alias RawdataPtsAddress = StaticArray(UInt8, 25)
 
   @@__default_context : Context? = nil
 
@@ -468,12 +474,12 @@ module Secp256k1Zkp
       @flag = flag
     end
 
-    def is_valid_public_keydata?(public_keydata : Bytes) : Bool
+    def is_valid_public_keydata?(public_keydata : RawdataCompressedPublicKey) : Bool
       return 0 != LibSecp256k1.secp256k1_ec_pubkey_verify(@ctx, public_keydata, public_keydata.size)
     end
 
-    def is_valid_private_keydata?(private_keydata : Bytes) : Bool
-      return private_keydata.size == BYTESIZE_PRIVATE_KEY_DATA && 0 != LibSecp256k1.secp256k1_ec_seckey_verify(@ctx, public_keydata)
+    def is_valid_private_keydata?(private_keydata : RawdataPrivateKey) : Bool
+      return 0 != LibSecp256k1.secp256k1_ec_seckey_verify(@ctx, private_keydata)
     end
 
     def clone
@@ -484,18 +490,18 @@ module Secp256k1Zkp
       clone
     end
 
-    def is_canonical?(c : Bytes) : Bool
+    def is_canonical?(c : RawdataCompactSignature) : Bool
       return !((c[1] & 0x80) != 0) &&
         !(c[1] == 0 && !((c[2] & 0x80) != 0)) &&
         !((c[33] & 0x80) != 0) &&
         !(c[33] == 0 && !((c[34] & 0x80) != 0))
     end
 
-    def sign_compact(message_digest : Bytes, private_key : PrivateKey, require_canonical = true) : Bytes
+    def sign_compact(message_digest : Bytes, private_key : PrivateKey, require_canonical = true) : RawdataCompactSignature
       raise "invalid message digest32." if message_digest.size != BYTESIZE_SHA256
       raise "invalid secp256k1 context, missing `SECP256K1_CONTEXT_SIGN` flag." if 0 == (@flag & LibSecp256k1::SECP256K1_CONTEXT_SIGN)
 
-      signature = Bytes.new(BYTESIZE_COMPACT_SIGNATURE)
+      signature = uninitialized RawdataCompactSignature
 
       extended_nonce_function = ->(nonce32 : LibC::UChar*, msg32 : LibC::UChar*, key32 : LibC::UChar*, attempt : UInt32, data : Void*) {
         extra = data.as(UInt32*)
@@ -509,7 +515,7 @@ module Secp256k1Zkp
       loop do
         raise "sign compact failed." if 0 == LibSecp256k1.secp256k1_ecdsa_sign_compact(@ctx,
                                           message_digest,
-                                          signature[1, BYTESIZE_COMPACT_SIGNATURE - 1],
+                                          signature.to_slice[1, signature.size - 1],
                                           private_key.bytes,
                                           extended_nonce_function,
                                           pointerof(counter),
@@ -523,9 +529,9 @@ module Secp256k1Zkp
     end
 
     def pedersen_commit(blind_factor : Bytes, value : UInt64) : Bytes
-      commit = Bytes.new(BYTESIZE_COMMITMENT)
+      commit = uninitialized RawdataCommitment
       raise "pedersen commit failed." if 0 == LibSecp256k1.secp256k1_pedersen_commit(@ctx, commit, blind_factor, value)
-      return commit
+      return commit.to_slice
     end
 
     # TODO: pedersen_blind_sum(blinds_in, non_neg)
@@ -539,7 +545,7 @@ module Secp256k1Zkp
 
     @addr : Bytes # 20 bytes # ripemd160
 
-    def bytes
+    def bytes : Bytes
       @addr
     end
 
@@ -583,15 +589,15 @@ module Secp256k1Zkp
   class PtsAddress
     include Secp256k1Zkp::Utility
 
-    @addr_data : Bytes
+    getter rawdata : RawdataPtsAddress
 
-    def bytes
-      @addr_data
+    def bytes : Bytes
+      @rawdata.to_slice
     end
 
     def initialize(base58str : String)
-      @addr_data = base58_decode(base58str)
-      raise "invalid pts_address #{base58str}" if @addr_data.size != BYTESIZE_PTS_ADDRESS
+      bin = base58_decode(base58str)
+      @rawdata = RawdataPtsAddress.new { |i| bin[i] }
       raise "invalid pts_address #{base58str}" unless is_valid?
     end
 
@@ -611,17 +617,19 @@ module Secp256k1Zkp
       check = sha256(sha256(io.to_slice))
       io.write(check[0, 4])
 
-      @addr_data = io.to_slice
+      bin = io.to_slice
+      @rawdata = RawdataPtsAddress.new { |i| bin[i] }
     end
 
     # Checks the address to verify it has a valid checksum
-    def is_valid?
-      check = sha256(sha256(@addr_data[0, 21]))
-      return @addr_data[21, 4] == check[0, 4]
+    def is_valid? : Bool
+      bin = self.bytes
+      check = sha256(sha256(bin[0, 21]))
+      return bin[21, 4] == check[0, 4]
     end
 
     def to_wif
-      return base58_encode(@addr_data)
+      return base58_encode(self.bytes)
     end
 
     def to_address : Address
@@ -633,26 +641,23 @@ module Secp256k1Zkp
     include Secp256k1Zkp::Utility
     extend Secp256k1Zkp::Utility
 
-    def self.from_wif(wif_public_key : String, public_key_prefix : String)
-      prefix_size = public_key_prefix.bytesize
-      prefix = wif_public_key[0, prefix_size]
-      raise "invalid public key prefix." if prefix != public_key_prefix
+    getter rawdata : RawdataCompressedPublicKey
 
-      raw = base58_decode(wif_public_key[prefix_size..-1])
-      checksum_size = 4
-      compression_public_key = raw[0, raw.bytesize - checksum_size]
-      checksum4 = raw[-checksum_size..-1]
-      raise "invalid public key." if checksum4 != rmd160(compression_public_key)[0, checksum_size]
-
-      return new(compression_public_key)
+    def bytes : Bytes
+      @rawdata.to_slice
     end
 
-    def initialize(public_keydata : Bytes)
+    # 零地址：Prefix + 1111111111111111111111111111111114T1Anm
+    def initialize
+      @rawdata = RawdataCompressedPublicKey.new(0)
+    end
+
+    def initialize(public_keydata : RawdataCompressedPublicKey)
       raise "invalid public key data." unless Secp256k1Zkp.default_context.is_valid_public_keydata?(public_keydata)
-      @public_keydata = public_keydata
+      @rawdata = public_keydata
     end
 
-    def initialize(compact_signature65 : Bytes, digest256 : Bytes, check_canonical = true)
+    def initialize(compact_signature65 : RawdataCompactSignature, digest256 : Bytes, check_canonical = true)
       nV = compact_signature65[0]
       raise "unable to reconstruct public key from signature" if nV < 27 || nV >= 35
 
@@ -660,28 +665,46 @@ module Secp256k1Zkp
         raise "signature is not canonical" unless Secp256k1Zkp.default_context.is_canonical?(compact_signature65)
       end
 
-      public_keydata = Bytes.new(BYTESIZE_COMPRESSED_PUBLICK_KEY_DATA)
+      public_keydata = uninitialized RawdataCompressedPublicKey
       pk_len = 0
 
       raise "recover failed." if 0 == LibSecp256k1.secp256k1_ecdsa_recover_compact(Secp256k1Zkp.default_context,
                                    digest256,
-                                   compact_signature65[1, 64],
+                                   compact_signature65.to_slice[1, 64],
                                    public_keydata,
                                    pointerof(pk_len),
                                    1, # compressed
                                    (nV - 27) & 3                                 )
       raise "recover failed." if pk_len != public_keydata.size
 
-      @public_keydata = public_keydata
+      @rawdata = public_keydata
     end
 
-    def bytes
-      @public_keydata
+    def self.is_zero?(wif_public_key : String, public_key_prefix : String) : Bool
+      wif_public_key == public_key_prefix + "1111111111111111111111111111111114T1Anm"
+    end
+
+    def self.from_wif(wif_public_key : String, public_key_prefix : String)
+      if is_zero?(wif_public_key, public_key_prefix)
+        return new
+      else
+        prefix_size = public_key_prefix.bytesize
+        prefix = wif_public_key[0, prefix_size]
+        raise "invalid public key prefix." if prefix != public_key_prefix
+
+        raw = base58_decode(wif_public_key[prefix_size..-1])
+        checksum_size = 4
+        compression_public_key = raw[0, raw.bytesize - checksum_size]
+        checksum4 = raw[-checksum_size..-1]
+        raise "invalid public key: #{wif_public_key}." if checksum4 != rmd160(compression_public_key)[0, checksum_size]
+
+        return new(RawdataCompressedPublicKey.new { |i| compression_public_key[i] })
+      end
     end
 
     def ecc_point_bytes : Bytes
-      pk_len = @public_keydata.size
-      output = @public_keydata + Bytes.new(BYTESIZE_PUBLIC_KEY_POINT - pk_len, 0_u8)
+      pk_len = @rawdata.size
+      output = self.bytes + Bytes.new(BYTESIZE_PUBLIC_KEY_POINT - pk_len, 0_u8)
 
       raise "decompress failed." if 0 == LibSecp256k1.secp256k1_ec_pubkey_decompress(Secp256k1Zkp.default_context, output, pointerof(pk_len))
       raise "decompress failed." if pk_len != output.size
@@ -699,30 +722,46 @@ module Secp256k1Zkp
       Address.new(self)
     end
 
-    def shared_secret(private_key : PrivateKey)
-      share_public_key = self * private_key.bytes
+    def shared_secret(private_key : PrivateKey) : Bytes
+      share_public_key = self * private_key
       return sha512(share_public_key.bytes[1..-1])
     end
 
-    def tweak_add(tweak : Bytes)
-      raise "invalid private key data." if tweak.size != BYTESIZE_PRIVATE_KEY_DATA
-      new_public_key = self.bytes.clone
+    # + 法调整
+    def tweak_add(tweak : PrivateKey)
+      tweak_add(tweak.rawdata)
+    end
+
+    def tweak_add(tweak : RawdataPrivateKey)
+      new_public_key = @rawdata.clone
       raise "tweak error." if 0 == LibSecp256k1.secp256k1_ec_pubkey_tweak_add(Secp256k1Zkp.default_context, new_public_key, new_public_key.size, tweak)
       return self.class.new(new_public_key)
     end
 
-    def +(tweak : Bytes)
+    def +(tweak : PrivateKey)
+      tweak_add(tweak.rawdata)
+    end
+
+    def +(tweak : RawdataPrivateKey)
       tweak_add(tweak)
     end
 
-    def tweak_mul(tweak : Bytes)
-      raise "invalid private key data." if tweak.size != BYTESIZE_PRIVATE_KEY_DATA
-      new_public_key = self.bytes.clone
+    # * 法调整
+    def tweak_mul(tweak : PrivateKey)
+      tweak_mul(tweak.rawdata)
+    end
+
+    def tweak_mul(tweak : RawdataPrivateKey)
+      new_public_key = @rawdata.clone
       raise "tweak error." if 0 == LibSecp256k1.secp256k1_ec_pubkey_tweak_mul(Secp256k1Zkp.default_context, new_public_key, new_public_key.size, tweak)
       return self.class.new(new_public_key)
     end
 
-    def *(tweak : Bytes)
+    def *(tweak : PrivateKey)
+      tweak_mul(tweak.rawdata)
+    end
+
+    def *(tweak : RawdataPrivateKey)
       tweak_mul(tweak)
     end
   end
@@ -731,12 +770,18 @@ module Secp256k1Zkp
     include Secp256k1Zkp::Utility
     extend Secp256k1Zkp::Utility
 
-    def bytes
-      @private_keydata
+    getter rawdata : RawdataPrivateKey
+
+    def bytes : Bytes
+      @rawdata.to_slice
     end
 
     def initialize(private_keydata : Bytes)
-      @private_keydata = private_keydata
+      @rawdata = RawdataPrivateKey.new { |i| private_keydata[i] }
+    end
+
+    def initialize(private_keydata : RawdataPrivateKey)
+      @rawdata = private_keydata
     end
 
     # include Secp256k1Zkp::Utility
@@ -750,9 +795,9 @@ module Secp256k1Zkp
 
     def self.random
       # TODO: 私钥有效范围。[1, SECP256K1_CURVE_ORDER) nonce
-      private_keydata = Bytes.new(Secp256k1Zkp::BYTESIZE_PRIVATE_KEY_DATA)
-      Random::Secure.random_bytes(private_keydata)
-      return new(private_keydata)
+      key_data = uninitialized RawdataPrivateKey
+      Random::Secure.random_bytes(key_data.to_slice)
+      return new(key_data)
     end
 
     # => role - owner / active
@@ -777,43 +822,61 @@ module Secp256k1Zkp
       return new(raw[1, 32])
     end
 
-    def tweak_add(tweak : Bytes)
-      raise "invalid private key data." if tweak.size != BYTESIZE_PRIVATE_KEY_DATA
-      new_private_key = self.bytes.clone
+    # + 法调整
+    def tweak_add(tweak : PrivateKey)
+      tweak_add(tweak.rawdata)
+    end
+
+    def tweak_add(tweak : RawdataPrivateKey)
+      new_private_key = @rawdata.clone
       raise "tweak error." if 0 == LibSecp256k1.secp256k1_ec_privkey_tweak_add(Secp256k1Zkp.default_context, new_private_key, tweak)
       return self.class.new(new_private_key)
     end
 
-    def +(tweak : Bytes)
+    def +(tweak : PrivateKey)
+      tweak_add(tweak.rawdata)
+    end
+
+    def +(tweak : RawdataPrivateKey)
       tweak_add(tweak)
     end
 
-    def tweak_mul(tweak : Bytes)
-      raise "invalid private key data." if tweak.size != BYTESIZE_PRIVATE_KEY_DATA
-      new_private_key = self.bytes.clone
+    # * 法调整
+    def tweak_mul(tweak : PrivateKey)
+      tweak_mul(tweak.rawdata)
+    end
+
+    def tweak_mul(tweak : RawdataPrivateKey)
+      new_private_key = @rawdata.clone
       raise "tweak error." if 0 == LibSecp256k1.secp256k1_ec_privkey_tweak_mul(Secp256k1Zkp.default_context, new_private_key, tweak)
       return self.class.new(new_private_key)
     end
 
-    def *(tweak : Bytes)
+    def *(tweak : PrivateKey)
+      tweak_mul(tweak.rawdata)
+    end
+
+    def *(tweak : RawdataPrivateKey)
       tweak_mul(tweak)
     end
 
+    # 获取对应的公钥
     def to_public_key
-      new_public_key = Bytes.new(BYTESIZE_COMPRESSED_PUBLICK_KEY_DATA)
+      new_public_key = uninitialized RawdataCompressedPublicKey
       pubkey_len = new_public_key.size
       raise "generate public key error." if 0 == LibSecp256k1.secp256k1_ec_pubkey_create(Secp256k1Zkp.default_context, new_public_key, pointerof(pubkey_len), self.bytes, 1)
       return PublicKey.new(new_public_key)
     end
 
+    # 获取 WIF 格式的私钥字符串
     def to_wif
       private_key_with_prefix = Bytes[0x80] + self.bytes
       checksum = sha256(sha256(private_key_with_prefix))[0, 4]
       return base58_encode(private_key_with_prefix + checksum)
     end
 
-    def shared_secret(public_key : PublicKey)
-      share_public_key = public_key * self.bytes
+    def shared_secret(public_key : PublicKey) : Bytes
+      share_public_key = public_key * self
       return sha512(share_public_key.bytes[1..-1])
     end
   end

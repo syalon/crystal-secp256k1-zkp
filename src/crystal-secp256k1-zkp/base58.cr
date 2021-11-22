@@ -40,7 +40,7 @@ module Base58
   end
 
   def base58_to_bytes(base58_val : String) : Bytes
-    nzeroes = base58_val.each_char_with_index { |c, idx| break idx if c != ALPHABET[0, 1] } || base58_val.size - 1
+    nzeroes = base58_val.each_char_with_index { |c, idx| break idx if c.to_s != ALPHABET[0, 1] } || base58_val.size - 1
     prefix = nzeroes < 0 ? "" : "00" * nzeroes
     return (prefix + int_to_hex(base58_to_int(base58_val))).hexbytes
   end

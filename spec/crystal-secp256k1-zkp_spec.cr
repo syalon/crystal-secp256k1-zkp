@@ -104,10 +104,10 @@ describe Secp256k1Zkp do
     pubkey01 = prikey01.to_public_key
     pubkey02 = prikey02.to_public_key
 
-    p! pubkey01 + Secp256k1Zkp::PrivateKey.random.bytes
-    p! pubkey02 * Secp256k1Zkp::PrivateKey.random.bytes
-    p! prikey01 + Secp256k1Zkp::PrivateKey.random.bytes
-    p! prikey02 * Secp256k1Zkp::PrivateKey.random.bytes
+    p! pubkey01 + Secp256k1Zkp::PrivateKey.random
+    p! pubkey02 * Secp256k1Zkp::PrivateKey.random
+    p! prikey01 + Secp256k1Zkp::PrivateKey.random
+    p! prikey02 * Secp256k1Zkp::PrivateKey.random
 
     prikey01.shared_secret(pubkey01).should eq(pubkey01.shared_secret(prikey01))
 
