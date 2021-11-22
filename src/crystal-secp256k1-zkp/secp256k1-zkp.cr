@@ -497,7 +497,7 @@ module Secp256k1Zkp
         !(c[33] == 0 && !((c[34] & 0x80) != 0))
     end
 
-    def sign_compact(message_digest : Bytes, private_key : PrivateKey, require_canonical = true) : RawdataCompactSignature
+    def sign_compact(message_digest : Bytes, private_key : PrivateKey, require_canonical = true) : Bytes
       raise "invalid message digest32." if message_digest.size != BYTESIZE_SHA256
       raise "invalid secp256k1 context, missing `SECP256K1_CONTEXT_SIGN` flag." if 0 == (@flag & LibSecp256k1::SECP256K1_CONTEXT_SIGN)
 
@@ -525,13 +525,13 @@ module Secp256k1Zkp
 
       signature[0] = 27_u8 + 4 + recid
 
-      return signature
+      return signature.to_slice.dup
     end
 
     def pedersen_commit(blind_factor : Bytes, value : UInt64) : Bytes
       commit = uninitialized RawdataCommitment
       raise "pedersen commit failed." if 0 == LibSecp256k1.secp256k1_pedersen_commit(@ctx, commit, blind_factor, value)
-      return commit.to_slice
+      return commit.to_slice.dup
     end
 
     # TODO: pedersen_blind_sum(blinds_in, non_neg)
