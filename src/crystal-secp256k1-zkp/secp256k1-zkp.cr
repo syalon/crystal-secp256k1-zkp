@@ -695,7 +695,7 @@ module Secp256k1Zkp
       else
         prefix_size = public_key_prefix.bytesize
         prefix = wif_public_key[0, prefix_size]
-        raise "invalid public key prefix." if prefix != public_key_prefix
+        raise "invalid public key: #{wif_public_key}, prefix: #{public_key_prefix}" if prefix != public_key_prefix
 
         raw = base58_decode(wif_public_key[prefix_size..-1])
         checksum_size = 4
