@@ -468,6 +468,11 @@ module Secp256k1Zkp
       @ctx
     end
 
+    # 析构方法：自动回收
+    def finalize
+      LibSecp256k1.secp256k1_context_destroy(@ctx)
+    end
+
     def initialize(flag = LibSecp256k1::SECP256K1_CONTEXT_ALL, ctx : LibSecp256k1::Secp256k1_context_t_ptr? = nil)
       @ctx = ctx || LibSecp256k1.secp256k1_context_create(flag)
       raise "secp256k1_context_create failed." if @ctx.nil?

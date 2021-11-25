@@ -72,7 +72,7 @@ describe Secp256k1Zkp do
     signature = Secp256k1Zkp::Context.default.sign_compact(testdata_digest, prikey)
 
     result = begin
-      Secp256k1Zkp::PublicKey.new(signature, testdata_digest).to_wif("BTS")
+      Secp256k1Zkp::PublicKey.new(Secp256k1Zkp::RawdataCompactSignature.new { |i| signature[i] }, testdata_digest).to_wif("BTS")
     rescue e
       e.message
     end
