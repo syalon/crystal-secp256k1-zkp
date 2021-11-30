@@ -643,6 +643,9 @@ module Secp256k1Zkp
   end
 
   class PublicKey
+    # 零地址：Prefix + 1111111111111111111111111111111114T1Anm
+    private EmptyKeyData = RawdataCompressedPublicKey.new(0)
+
     include Secp256k1Zkp::Utility
     extend Secp256k1Zkp::Utility
 
@@ -654,12 +657,17 @@ module Secp256k1Zkp
 
     # 零地址：Prefix + 1111111111111111111111111111111114T1Anm
     def initialize
-      @rawdata = RawdataCompressedPublicKey.new(0)
+      @rawdata = EmptyKeyData
+    end
+
+    def initialize(public_keydata : Bytes)
+      @rawdata = RawdataCompressedPublicKey.new { |i| public_keydata[i] }
+      verify_key_data!
     end
 
     def initialize(public_keydata : RawdataCompressedPublicKey)
-      raise "invalid public key data." unless Secp256k1Zkp.default_context.is_valid_public_keydata?(public_keydata)
       @rawdata = public_keydata
+      verify_key_data!
     end
 
     def initialize(compact_signature65 : RawdataCompactSignature, digest256 : Bytes, check_canonical = true)
@@ -683,6 +691,13 @@ module Secp256k1Zkp
       raise "recover failed." if pk_len != public_keydata.size
 
       @rawdata = public_keydata
+      verify_key_data!
+    end
+
+    private def verify_key_data!
+      if @rawdata != EmptyKeyData
+        raise "invalid public key data." unless Secp256k1Zkp.default_context.is_valid_public_keydata?(@rawdata)
+      end
     end
 
     def self.is_zero?(wif_public_key : String, public_key_prefix : String) : Bool
@@ -703,7 +718,7 @@ module Secp256k1Zkp
         checksum4 = raw[-checksum_size..-1]
         raise "invalid public key: #{wif_public_key}." if checksum4 != rmd160(compression_public_key)[0, checksum_size]
 
-        return new(RawdataCompressedPublicKey.new { |i| compression_public_key[i] })
+        return new(compression_public_key)
       end
     end
 
