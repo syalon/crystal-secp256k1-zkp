@@ -68,7 +68,7 @@ module Secp256k1Zkp
     #  */
     fun secp256k1_ecdsa_verify(ctx : Secp256k1_context_t_ptr,
                                msg : LibC::UChar*,
-                               msg : LibC::UChar*,
+                               sig : LibC::UChar*,
                                siglen : Int32,
                                pubkey : LibC::UChar*,
                                pubkeylen : Int32) : Int32
